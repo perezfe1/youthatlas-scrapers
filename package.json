@@ -5,6 +5,7 @@
   "private": false,
   "scripts": {
     "scrape": "tsx --env-file .env src/scrapers/run-all.ts",
+    "scrape:youthop": "tsx --env-file .env src/scrapers/run-youthop.ts",
     "process": "tsx src/processing/extract.ts",
     "store": "tsx src/processing/store.ts",
     "distribute:telegram": "tsx src/distribution/telegram-post.ts",
