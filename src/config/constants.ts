@@ -22,8 +22,8 @@ export const TELEGRAM = {
 } as const;
 
 export const PROCESSING = {
-  /** Claude model for extraction (claude-3-5-haiku-20241022 confirmed in SDK 0.32.1) */
-  MODEL: 'claude-3-5-haiku-20241022' as const,
+  /** Claude model for extraction (claude-haiku-4-5-20251001 confirmed in SDK 0.32.1) */
+  MODEL: 'claude-haiku-4-5-20251001' as const,
   /** Max tokens for extraction response */
   MAX_TOKENS: 2048,
 } as const;
