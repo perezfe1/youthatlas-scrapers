@@ -4,7 +4,7 @@
   "type": "module",
   "private": false,
   "scripts": {
-    "scrape": "tsx src/scrapers/run-all.ts",
+    "scrape": "tsx --env-file .env src/scrapers/run-all.ts",
     "process": "tsx src/processing/extract.ts",
     "store": "tsx src/processing/store.ts",
     "distribute:telegram": "tsx src/distribution/telegram-post.ts",
