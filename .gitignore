@@ -3,7 +3,8 @@ node_modules
 dist
 .env
 .env.local
-output
+output/*
+!output/.gitkeep
 .DS_Store
 storage
 .vscode/settings.json
