@@ -1,18 +1,25 @@
-import { loadBaseEnv } from '@/config/env.js';
+/**
+ * Legacy entry point — now delegates to the pipeline orchestrator.
+ * The canonical entry point is src/pipeline/run.ts (pnpm pipeline).
+ * This file is kept for backwards compatibility.
+ */
+import { loadExtractionEnv } from '@/config/env.js';
 import { createLogger } from '@/lib/logger.js';
+import { runPipeline } from '@/pipeline/orchestrator.js';
 
-const log = createLogger('pipeline');
+const log = createLogger('run-all');
 
 async function main(): Promise<void> {
-  // Validate env before doing anything
-  loadBaseEnv();
+  loadExtractionEnv();
+  log.info('run-all.ts → delegating to pipeline orchestrator');
 
-  log.info('YouthAtlas scraper pipeline starting');
-  log.info('No scrapers registered yet — add them in Module 1.2+');
-  log.info('Pipeline finished');
+  const result = await runPipeline();
+
+  const allSuccess = result.results.every((r) => r.status === 'success');
+  process.exit(allSuccess ? 0 : 1);
 }
 
 main().catch((err) => {
-  log.error('Pipeline crashed', { error: err instanceof Error ? err.message : String(err) });
+  log.error('run-all crashed', { error: err instanceof Error ? err.message : String(err) });
   process.exit(1);
 });
