@@ -7,6 +7,7 @@
     "scrape": "tsx --env-file .env src/pipeline/run.ts",
     "pipeline": "tsx --env-file .env src/pipeline/run.ts",
     "pipeline:dry": "tsx --env-file .env src/pipeline/run.ts --dry-run --limit=3",
+    "pipeline:ci": "tsx src/pipeline/run.ts",
     "scrape:youthop": "tsx --env-file .env src/scrapers/run-youthop.ts",
     "scrape:ofy": "tsx --env-file .env src/scrapers/run-ofy.ts",
     "process": "tsx --env-file .env src/processing/extract.ts",
