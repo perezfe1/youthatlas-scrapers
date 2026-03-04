@@ -1,0 +1,28 @@
+{
+  "name": "youthatlas-scrapers",
+  "version": "0.1.0",
+  "type": "module",
+  "private": false,
+  "scripts": {
+    "scrape": "tsx src/scrapers/run-all.ts",
+    "process": "tsx src/processing/extract.ts",
+    "store": "tsx src/processing/store.ts",
+    "distribute:telegram": "tsx src/distribution/telegram-post.ts",
+    "distribute:email": "tsx src/distribution/email-digest.ts",
+    "type-check": "tsc --noEmit",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.32.1",
+    "@supabase/supabase-js": "2.47.12",
+    "crawlee": "3.12.1",
+    "fuzzball": "2.1.3",
+    "playwright": "1.49.1",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3"
+  }
+}
