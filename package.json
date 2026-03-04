@@ -9,6 +9,7 @@
     "store": "tsx src/processing/store.ts",
     "distribute:telegram": "tsx src/distribution/telegram-post.ts",
     "distribute:email": "tsx src/distribution/email-digest.ts",
+    "migrate:combined": "cat supabase/migrations/*.sql",
     "type-check": "tsc --noEmit",
     "build": "tsc"
   },
