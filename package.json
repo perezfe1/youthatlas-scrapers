@@ -7,7 +7,7 @@
     "scrape": "tsx --env-file .env src/scrapers/run-all.ts",
     "scrape:youthop": "tsx --env-file .env src/scrapers/run-youthop.ts",
     "scrape:ofy": "tsx --env-file .env src/scrapers/run-ofy.ts",
-    "process": "tsx src/processing/extract.ts",
+    "process": "tsx --env-file .env src/processing/extract.ts",
     "store": "tsx src/processing/store.ts",
     "distribute:telegram": "tsx src/distribution/telegram-post.ts",
     "distribute:email": "tsx src/distribution/email-digest.ts",
