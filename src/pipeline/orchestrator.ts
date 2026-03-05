@@ -2,6 +2,9 @@ import { createLogger } from '@/lib/logger.js';
 import { BaseScraper } from '@/scrapers/base-scraper.js';
 import { YouthOpScraper } from '@/scrapers/youthop.js';
 import { OFYScraper } from '@/scrapers/ofy.js';
+import { OpDeskScraper } from '@/scrapers/opdesk.js';
+import { AfterSchoolScraper } from '@/scrapers/afterschool.js';
+import { ScholAdsScraper } from '@/scrapers/scholads.js';
 import { extractPages } from '@/processing/extractor.js';
 import { deduplicateBatch, type ExtractedItem } from '@/processing/deduplication.js';
 import { storeBatch, type StoreResult } from '@/processing/store.js';
@@ -44,6 +47,9 @@ export type PipelineResult = {
 const SCRAPER_REGISTRY: Record<string, () => BaseScraper> = {
   youthop: () => new YouthOpScraper(),
   ofy: () => new OFYScraper(),
+  opdesk: () => new OpDeskScraper(),
+  afterschool: () => new AfterSchoolScraper(),
+  scholads: () => new ScholAdsScraper(),
 };
 
 // ── Step helpers (each ≤ 30 lines) ───────────────────────────────────────────
