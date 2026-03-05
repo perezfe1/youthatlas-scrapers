@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logger.js';
+import { notifyPipelineSummary } from '@/lib/telegram.js';
 import { BaseScraper } from '@/scrapers/base-scraper.js';
 import { YouthOpScraper } from '@/scrapers/youthop.js';
 import { OFYScraper } from '@/scrapers/ofy.js';
@@ -207,6 +208,13 @@ export async function runPipeline(options?: PipelineOptions): Promise<PipelineRe
     totalErrors,
     durationMs: pipelineResult.durationMs,
   });
+
+  try {
+    await notifyPipelineSummary(pipelineResult);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.warn('Telegram notification threw unexpectedly — pipeline result unaffected', { error: msg });
+  }
 
   return pipelineResult;
 }

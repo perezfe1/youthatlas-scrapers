@@ -17,6 +17,7 @@
     "dedup:test": "tsx --env-file .env src/processing/dedup-test.ts",
     "store": "tsx --env-file .env src/processing/store.ts",
     "store:test": "tsx --env-file .env src/processing/store-test.ts",
+    "telegram:test": "tsx --env-file .env src/lib/telegram-test.ts",
     "distribute:telegram": "tsx src/distribution/telegram-post.ts",
     "distribute:email": "tsx src/distribution/email-digest.ts",
     "migrate:combined": "cat supabase/migrations/*.sql",
