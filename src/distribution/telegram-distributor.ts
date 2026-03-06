@@ -54,6 +54,8 @@ export async function getUnpostedOpportunities(): Promise<Result<Opportunity[]>>
       (r: { opportunity_id: string }) => r.opportunity_id,
     );
 
+    log.info('Already-posted IDs found in distribution_log', { count: postedIds.length });
+
     // Step 2: query unposted active opportunities within the lookback window
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q: any = supabase
@@ -94,17 +96,16 @@ export async function recordDistribution(
     const supabase = getSupabaseClient();
     const { error } = await supabase
       .from('distribution_log')
-      .upsert(
-        {
-          opportunity_id: opportunityId,
-          channel,
-          posted_at: new Date().toISOString(),
-          external_id: externalId ?? null,
-        },
-        { onConflict: 'opportunity_id,channel', ignoreDuplicates: true },
-      );
+      .insert({
+        opportunity_id: opportunityId,
+        channel,
+        posted_at: new Date().toISOString(),
+        external_id: externalId ?? null,
+      });
 
     if (error) {
+      // 23505 = unique_violation — already recorded for this channel, skip silently
+      if (error.code === '23505') return { data: null, error: null };
       return dbError('DB_ERROR', `Failed to record distribution: ${error.message}`);
     }
 
