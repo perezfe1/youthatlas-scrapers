@@ -21,6 +21,17 @@ export const TELEGRAM = {
   MAX_MESSAGE_LENGTH: 4096,
 } as const;
 
+export const DISTRIBUTION = {
+  /** Milliseconds to wait between Telegram posts to avoid rate limits */
+  RATE_LIMIT_MS: 3000,
+  /** Maximum opportunities to post per distribution run */
+  MAX_PER_RUN: 20,
+  /** Maximum summary characters before truncation */
+  MAX_SUMMARY_LENGTH: 200,
+  /** Only distribute opportunities created within this many hours */
+  LOOKBACK_HOURS: 48,
+} as const;
+
 export const PROCESSING = {
   /** Claude model for extraction (claude-haiku-4-5-20251001 confirmed in SDK 0.32.1) */
   MODEL: 'claude-haiku-4-5-20251001' as const,

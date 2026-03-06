@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logger.js';
 import type { PipelineResult } from '@/pipeline/orchestrator.js';
+import type { Result } from '@/types/opportunity.js';
 
 const log = createLogger('telegram');
 
@@ -33,6 +34,50 @@ export async function sendTelegramMessage(
     return { data: true, error: null };
   } catch (err) {
     return { data: null, error: err instanceof Error ? err.message : String(err) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Send a message to any Telegram channel by ID.
+ * Unlike sendTelegramMessage, this takes the channelId as a parameter
+ * (not from env) and returns the Telegram message_id for tracking.
+ */
+export async function sendTelegramMessageToChannel(
+  channelId: string,
+  text: string,
+  parseMode: 'HTML' = 'HTML',
+): Promise<Result<{ messageId: number }>> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!token) {
+    return { data: null, error: { code: 'MISSING_CREDENTIALS', message: 'TELEGRAM_BOT_TOKEN not configured' } };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: channelId, text, parse_mode: parseMode }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      return { data: null, error: { code: 'HTTP_ERROR', message: `HTTP ${res.status}: ${body}` } };
+    }
+
+    const json = (await res.json()) as { ok: boolean; result: { message_id: number } };
+    return { data: { messageId: json.result.message_id }, error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: { code: 'FETCH_ERROR', message: err instanceof Error ? err.message : String(err) },
+    };
   } finally {
     clearTimeout(timer);
   }

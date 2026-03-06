@@ -36,14 +36,39 @@ const fullEnvSchema = baseEnvSchema.extend({
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   TELEGRAM_CHANNEL_ID: z.string().min(1),
   ADMIN_TELEGRAM_ID: z.string().min(1),
+  // Optional — only required for distribution runs
+  TELEGRAM_PUBLIC_CHANNEL_ID: z.string().min(1).optional(),
+});
+
+// Distribution schema — Supabase + public Telegram channel (no Anthropic needed)
+const distributionEnvSchema = baseEnvSchema.extend({
+  TELEGRAM_BOT_TOKEN: z.string().min(1),
+  TELEGRAM_PUBLIC_CHANNEL_ID: z.string().min(1),
 });
 
 export type BaseEnv = z.infer<typeof baseEnvSchema>;
 export type FullEnv = z.infer<typeof fullEnvSchema>;
+export type DistributionEnv = z.infer<typeof distributionEnvSchema>;
 
 /** Load and validate Supabase-only env vars. Use this in scrapers and store modules. */
 export function loadBaseEnv(): BaseEnv {
   const result = baseEnvSchema.safeParse(process.env);
+
+  if (!result.success) {
+    const missing = result.error.issues
+      .map((i) => `  ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    console.error(`\n❌ Environment validation failed:\n${missing}\n`);
+    console.error('Copy .env.example to .env and fill in your credentials.\n');
+    process.exit(1);
+  }
+
+  return result.data;
+}
+
+/** Load and validate distribution env vars. Use this in distribution entry points. */
+export function loadDistributionEnv(): DistributionEnv {
+  const result = distributionEnvSchema.safeParse(process.env);
 
   if (!result.success) {
     const missing = result.error.issues
