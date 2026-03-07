@@ -5,13 +5,24 @@ import { EMAIL_DIGEST } from '@/config/constants.js';
 
 const TYPE_EMOJI: Record<OpportunityType, string> = {
   scholarship: '🎓',
-  fellowship: '🔬',
-  grant: '💰',
-  internship: '💼',
-  conference: '🎤',
+  fellowship:  '🔬',
+  grant:       '💰',
+  internship:  '💼',
+  conference:  '🎤',
   competition: '🏆',
-  training: '📚',
-  job: '💼',
+  training:    '📚',
+  job:         '👔',
+};
+
+const TYPE_BADGE: Record<OpportunityType, { bg: string; color: string }> = {
+  scholarship: { bg: '#DBEAFE', color: '#1E40AF' },
+  fellowship:  { bg: '#EDE9FE', color: '#5B21B6' },
+  grant:       { bg: '#D1FAE5', color: '#065F46' },
+  internship:  { bg: '#FEF3C7', color: '#92400E' },
+  conference:  { bg: '#CCFBF1', color: '#115E59' },
+  competition: { bg: '#FFE4E6', color: '#9F1239' },
+  training:    { bg: '#E0E7FF', color: '#3730A3' },
+  job:         { bg: '#FFEDD5', color: '#9A3412' },
 };
 
 const BASE_URL = 'https://youthatlas.vercel.app';
@@ -41,14 +52,23 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
-// ── Opportunity row ────────────────────────────────────────────────────────────
+/** Returns red if deadline is within 7 days, gray otherwise. */
+function deadlineColor(deadline: string | null, isRolling: boolean): string {
+  if (isRolling || !deadline) return '#64748B';
+  const msUntil = new Date(deadline).getTime() - Date.now();
+  return msUntil < 7 * 24 * 60 * 60 * 1000 ? '#DC2626' : '#64748B';
+}
 
-function renderOpportunityRow(opp: Opportunity): string {
+// ── Opportunity card ────────────────────────────────────────────────────────────
+
+function renderOpportunityCard(opp: Opportunity): string {
   const emoji = TYPE_EMOJI[opp.type] ?? '📌';
   const typeLabel = opp.type.charAt(0).toUpperCase() + opp.type.slice(1);
+  const badge = TYPE_BADGE[opp.type] ?? { bg: '#F1F5F9', color: '#475569' };
   const title = escapeHtml(opp.title);
   const org = opp.organization ? escapeHtml(opp.organization) : '';
-  const deadline = escapeHtml(formatDeadline(opp.deadline, opp.is_rolling));
+  const deadlineText = escapeHtml(formatDeadline(opp.deadline, opp.is_rolling));
+  const dlColor = deadlineColor(opp.deadline, opp.is_rolling);
   const url = `${BASE_URL}/opportunities/${opp.slug}`;
 
   const rawSummary = opp.summary || opp.description;
@@ -56,28 +76,72 @@ function renderOpportunityRow(opp: Opportunity): string {
     ? escapeHtml(truncate(rawSummary, EMAIL_DIGEST.MAX_SUMMARY_LENGTH))
     : '';
 
+  const regionList =
+    opp.regions && opp.regions.length > 0 ? escapeHtml(opp.regions.join(', ')) : '';
+
+  // Region + funding row (omitted entirely if neither is present)
+  const regionFundingRow = (() => {
+    if (!regionList && !opp.is_fully_funded) return '';
+    const parts: string[] = [];
+    if (regionList) parts.push(`🌍 ${regionList}`);
+    if (opp.is_fully_funded) {
+      parts.push(
+        `<span style="color: #059669; font-weight: 600;">✅ Fully Funded</span>`,
+      );
+    }
+    return `<p style="margin: 0 0 10px 0; font-size: 13px; color: #64748B; font-family: Arial, Helvetica, sans-serif;">${parts.join(' &nbsp;·&nbsp; ')}</p>`;
+  })();
+
   return `
-    <tr>
-      <td style="padding: 20px 0; border-bottom: 1px solid #e5e7eb;">
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td>
-              <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 700; line-height: 1.3;">
-                <a href="${url}" style="color: #2563eb; text-decoration: none;">${title}</a>
-              </h3>
-              ${org ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #6b7280;">${org}</p>` : ''}
-              <p style="margin: 0 0 8px 0; font-size: 13px; color: #374151;">
-                <span style="display: inline-block; background-color: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">${emoji} ${typeLabel}</span>
-                &nbsp;&nbsp;📅 <strong>Deadline:</strong> ${deadline}
-                ${opp.is_fully_funded ? '&nbsp;&nbsp;✅ <strong>Fully Funded</strong>' : ''}
-              </p>
-              ${summary ? `<p style="margin: 0 0 10px 0; font-size: 14px; color: #4b5563; line-height: 1.6;">${summary}</p>` : ''}
-              <a href="${url}" style="color: #2563eb; font-size: 13px; font-weight: 600; text-decoration: none;">View &amp; Apply →</a>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>`;
+  <!-- Opportunity Card -->
+  <tr>
+    <td style="padding: 0 0 16px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="border: 1px solid #E2E8F0; border-radius: 8px; background-color: #ffffff;">
+        <tr>
+          <td style="padding: 20px; border-radius: 8px;">
+
+            <!-- Badge + Deadline row -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="margin-bottom: 12px;">
+              <tr>
+                <td>
+                  <span style="display: inline-block; background-color: ${badge.bg}; color: ${badge.color}; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; font-family: Arial, Helvetica, sans-serif;">${emoji} ${typeLabel}</span>
+                </td>
+                <td align="right">
+                  <span style="font-size: 13px; color: ${dlColor}; font-family: Arial, Helvetica, sans-serif;">📅 ${deadlineText}</span>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Title -->
+            <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; line-height: 1.3; font-family: Arial, Helvetica, sans-serif;">
+              <a href="${url}" style="color: #3B82F6; text-decoration: none;">${title}</a>
+            </h3>
+
+            ${org ? `<!-- Organisation -->
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #64748B; font-family: Arial, Helvetica, sans-serif;">🏢 ${org}</p>` : ''}
+
+            ${regionFundingRow}
+
+            ${summary ? `<!-- Summary -->
+            <p style="margin: 0 0 14px 0; font-size: 14px; color: #374151; line-height: 1.5; font-family: Arial, Helvetica, sans-serif;">${summary}</p>` : ''}
+
+            <!-- View & Apply button -->
+            <table cellpadding="0" cellspacing="0" border="0" style="margin-top: 12px;">
+              <tr>
+                <td style="background-color: #3B82F6; border-radius: 6px;">
+                  <a href="${url}"
+                     style="display: inline-block; background-color: #3B82F6; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 10px 20px; border-radius: 6px; font-family: Arial, Helvetica, sans-serif;">View &amp; Apply →</a>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>`;
 }
 
 // ── Public formatter ───────────────────────────────────────────────────────────
@@ -85,7 +149,8 @@ function renderOpportunityRow(opp: Opportunity): string {
 /**
  * Format a list of opportunities into a weekly digest email.
  * Returns the email subject and HTML body with inline styles.
- * HTML is kept simple and table-based for maximum email client compatibility.
+ * HTML is table-based with inline styles for maximum email client compatibility
+ * (Gmail, Outlook, Apple Mail).
  */
 export function formatWeeklyDigest(
   opportunities: Opportunity[],
@@ -94,7 +159,7 @@ export function formatWeeklyDigest(
   const subject = `YouthAtlas Weekly: ${count} New Opportunit${count === 1 ? 'y' : 'ies'} This Week`;
 
   const capped = opportunities.slice(0, EMAIL_DIGEST.MAX_OPPORTUNITIES);
-  const rows = capped.map(renderOpportunityRow).join('\n');
+  const cards = capped.map(renderOpportunityCard).join('\n');
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -104,71 +169,97 @@ export function formatWeeklyDigest(
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>${escapeHtml(subject)}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; -webkit-text-size-adjust: 100%;">
+<body style="margin: 0; padding: 0; background-color: #F1F5F9; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
 
   <!-- Outer wrapper -->
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="background-color: #F1F5F9;">
     <tr>
       <td align="center" style="padding: 32px 16px;">
 
-        <!-- Email card -->
-        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px;">
+        <!-- Inner card — 600px max -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0"
+               style="max-width: 600px;">
 
-          <!-- Header -->
+          <!-- ① Header -->
           <tr>
-            <td style="background-color: #1a1a2e; padding: 28px 32px; border-radius: 8px 8px 0 0;">
-              <h1 style="margin: 0; font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">
-                Youth<span style="color: #60a5fa;">Atlas</span>
+            <td align="center"
+                style="background-color: #1A1A2E; padding: 32px; border-radius: 8px 8px 0 0;">
+              <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px; font-family: Arial, Helvetica, sans-serif;">
+                Youth<span style="color: #60A5FA;">Atlas</span>
               </h1>
-              <p style="margin: 6px 0 0 0; font-size: 13px; color: #94a3b8; font-weight: 400;">
+              <p style="margin: 8px 0 0 0; font-size: 14px; color: #94A3B8; font-family: Arial, Helvetica, sans-serif;">
                 Your weekly opportunity digest
               </p>
             </td>
           </tr>
 
-          <!-- Intro -->
+          <!-- ② Intro -->
           <tr>
-            <td style="padding: 24px 32px 4px 32px;">
-              <p style="margin: 0; font-size: 15px; color: #374151; line-height: 1.6;">
-                Here are the top opportunities added this week:
+            <td style="background-color: #ffffff; padding: 24px 32px 0 32px;">
+              <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 700; color: #1A1A2E; font-family: Arial, Helvetica, sans-serif;">Hi there 👋</h2>
+              <p style="margin: 0 0 20px 0; font-size: 14px; color: #64748B; line-height: 1.6; font-family: Arial, Helvetica, sans-serif;">
+                Here are the top ${count} ${count === 1 ? 'opportunity' : 'opportunities'} added this week. Don&apos;t miss out &mdash; deadlines are approaching!
               </p>
+              <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 0 0 20px 0;">
             </td>
           </tr>
 
-          <!-- Opportunities list -->
+          <!-- ③ Opportunity Cards -->
           <tr>
-            <td style="padding: 0 32px;">
+            <td style="background-color: #ffffff; padding: 0 32px 8px 32px;">
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                ${rows}
+                ${cards}
               </table>
             </td>
           </tr>
 
-          <!-- CTA -->
+          <!-- ④ CTA Section -->
           <tr>
-            <td style="padding: 24px 32px;" align="center">
-              <a href="${BASE_URL}/opportunities"
-                 style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 28px; border-radius: 6px;">
-                Browse All Opportunities →
-              </a>
+            <td align="center" style="background-color: #EFF6FF; padding: 32px;">
+              <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 700; color: #1A1A2E; font-family: Arial, Helvetica, sans-serif;">Want to see more?</p>
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background-color: #3B82F6; border-radius: 8px;">
+                    <a href="${BASE_URL}/opportunities"
+                       style="display: inline-block; background-color: #3B82F6; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 700; padding: 14px 28px; border-radius: 8px; font-family: Arial, Helvetica, sans-serif;">Browse All Opportunities →</a>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
-          <!-- Footer -->
+          <!-- ⑤ Social Section -->
           <tr>
-            <td style="padding: 20px 32px 28px 32px; border-top: 1px solid #e5e7eb; background-color: #f8fafc; border-radius: 0 0 8px 8px;">
-              <p style="margin: 0 0 6px 0; font-size: 12px; color: #9ca3af; text-align: center; line-height: 1.6;">
-                You received this because you subscribed at
-                <a href="${BASE_URL}" style="color: #6b7280; text-decoration: none;">youthatlas.com</a>.
+            <td align="center" style="background-color: #ffffff; padding: 24px 32px;">
+              <p style="margin: 0 0 12px 0; font-size: 14px; color: #94A3B8; font-family: Arial, Helvetica, sans-serif;">Follow us for daily updates:</p>
+              <p style="margin: 0 0 6px 0; font-size: 14px; font-family: Arial, Helvetica, sans-serif;">
+                📱 Telegram: <a href="https://t.me/youthatlas1" style="color: #3B82F6; text-decoration: none; font-weight: 600;">@youthatlas1</a>
               </p>
-              <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
-                <a href="{{ unsubscribe_url }}" style="color: #9ca3af; text-decoration: underline;">Unsubscribe</a>
+              <p style="margin: 0; font-size: 14px; font-family: Arial, Helvetica, sans-serif;">
+                🌐 Website: <a href="${BASE_URL}" style="color: #3B82F6; text-decoration: none; font-weight: 600;">youthatlas.vercel.app</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- ⑥ Footer -->
+          <tr>
+            <td align="center"
+                style="background-color: #F8FAFC; padding: 24px 32px; border-radius: 0 0 8px 8px; border-top: 1px solid #E2E8F0;">
+              <p style="margin: 0 0 8px 0; font-size: 12px; color: #94A3B8; line-height: 1.6; font-family: Arial, Helvetica, sans-serif;">
+                You&apos;re receiving this because you subscribed to the YouthAtlas weekly digest.
+              </p>
+              <p style="margin: 0 0 8px 0; font-size: 12px; font-family: Arial, Helvetica, sans-serif;">
+                <a href="{{ unsubscribe_url }}" style="color: #94A3B8; text-decoration: underline;">Unsubscribe</a>
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #94A3B8; font-family: Arial, Helvetica, sans-serif;">
+                &copy; 2026 YouthAtlas. All rights reserved.
               </p>
             </td>
           </tr>
 
         </table>
-        <!-- /Email card -->
+        <!-- /Inner card -->
 
       </td>
     </tr>
