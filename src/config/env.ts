@@ -82,6 +82,29 @@ export function loadDistributionEnv(): DistributionEnv {
   return result.data;
 }
 
+// Email digest schema — Supabase + Kit (no Anthropic, no Telegram required)
+const emailEnvSchema = baseEnvSchema.extend({
+  KIT_API_SECRET: z.string().min(1),
+});
+
+export type EmailEnv = z.infer<typeof emailEnvSchema>;
+
+/** Load and validate env vars needed for the weekly email digest. */
+export function loadEmailEnv(): EmailEnv {
+  const result = emailEnvSchema.safeParse(process.env);
+
+  if (!result.success) {
+    const missing = result.error.issues
+      .map((i) => `  ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    console.error(`\n❌ Environment validation failed:\n${missing}\n`);
+    console.error('Copy .env.example to .env and fill in your credentials.\n');
+    process.exit(1);
+  }
+
+  return result.data;
+}
+
 /** Load and validate ALL env vars. Use this in orchestrator and distribution modules. */
 export function loadEnv(): FullEnv {
   const result = fullEnvSchema.safeParse(process.env);

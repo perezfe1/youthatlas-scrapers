@@ -32,6 +32,15 @@ export const DISTRIBUTION = {
   LOOKBACK_HOURS: 48,
 } as const;
 
+export const EMAIL_DIGEST = {
+  /** Maximum opportunities to include per digest email */
+  MAX_OPPORTUNITIES: 15,
+  /** Query opportunities created within this many days */
+  LOOKBACK_DAYS: 7,
+  /** Maximum summary characters before truncation */
+  MAX_SUMMARY_LENGTH: 150,
+} as const;
+
 export const PROCESSING = {
   /** Claude model for extraction (claude-haiku-4-5-20251001 confirmed in SDK 0.32.1) */
   MODEL: 'claude-haiku-4-5-20251001' as const,

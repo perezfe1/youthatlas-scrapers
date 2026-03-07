@@ -21,6 +21,8 @@
     "distribute:telegram": "tsx --env-file .env src/distribution/run-telegram.ts",
     "distribute:telegram:ci": "tsx src/distribution/run-telegram.ts",
     "distribute:email": "tsx src/distribution/email-digest.ts",
+    "digest:email": "tsx --env-file .env src/distribution/run-email-digest.ts",
+    "digest:email:ci": "tsx src/distribution/run-email-digest.ts",
     "migrate:combined": "cat supabase/migrations/*.sql",
     "type-check": "tsc --noEmit",
     "build": "tsc"
