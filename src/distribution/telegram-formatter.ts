@@ -52,7 +52,7 @@ export function formatOpportunityPost(opportunity: Opportunity): string {
   const emoji = TYPE_EMOJI[opportunity.type] ?? '📌';
   const title = escapeHtml(opportunity.title);
   const deadline = formatDeadline(opportunity.deadline, opportunity.is_rolling);
-  const applyUrl = `https://youthatlas.vercel.app/opportunities/${opportunity.slug}`;
+  const applyUrl = `https://youthatlas.com/opportunities/${opportunity.slug}`;
 
   // Truncate summary to MAX_SUMMARY_LENGTH before escaping (escape may expand length slightly)
   let summary = '';

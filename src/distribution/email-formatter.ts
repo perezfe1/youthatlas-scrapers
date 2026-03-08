@@ -25,7 +25,7 @@ const TYPE_BADGE: Record<OpportunityType, { bg: string; color: string }> = {
   job:         { bg: '#FFEDD5', color: '#9A3412' },
 };
 
-const BASE_URL = 'https://youthatlas.vercel.app';
+const BASE_URL = 'https://youthatlas.com';
 
 // ── Pure helpers ───────────────────────────────────────────────────────────────
 
@@ -237,7 +237,7 @@ export function formatWeeklyDigest(
                 📱 Telegram: <a href="https://t.me/youthatlas1" style="color: #3B82F6; text-decoration: none; font-weight: 600;">@youthatlas1</a>
               </p>
               <p style="margin: 0; font-size: 14px; font-family: Arial, Helvetica, sans-serif;">
-                🌐 Website: <a href="${BASE_URL}" style="color: #3B82F6; text-decoration: none; font-weight: 600;">youthatlas.vercel.app</a>
+                🌐 Website: <a href="${BASE_URL}" style="color: #3B82F6; text-decoration: none; font-weight: 600;">youthatlas.com</a>
               </p>
             </td>
           </tr>
