@@ -27,7 +27,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: tsx src/distribution/run-email-digest.ts
+      - name: Run digest
+        run: pnpm digest:email:ci
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

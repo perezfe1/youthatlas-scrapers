@@ -27,14 +27,21 @@ export const extractedOpportunitySchema = z.object({
     .min(1, 'Summary is required')
     .transform((s) => s.trim().slice(0, 300)), // Cap at 300 chars
 
-  type: z.enum(OPPORTUNITY_TYPES),
+  type: z
+    .string()
+    .transform((val) => (val === 'award' ? 'competition' : val))
+    .pipe(z.enum(OPPORTUNITY_TYPES)),
 
   fields: z
     .array(z.string().transform((s) => s.trim()))
     .default([]),
 
   regions: z
-    .array(z.enum(REGIONS))
+    .array(
+      z.string()
+        .transform((val) => (val === 'caribbean' ? 'latin_america' : val))
+        .pipe(z.enum(REGIONS)),
+    )
     .default(['global']),
 
   countries: z
@@ -43,7 +50,7 @@ export const extractedOpportunitySchema = z.object({
 
   target_audience: z
     .array(z.enum(EDUCATION_LEVELS))
-    .default(['any']),
+    .default(['any']),  // young_professional, postgraduate, youth now in EDUCATION_LEVELS
 
   eligibility_text: z
     .string()

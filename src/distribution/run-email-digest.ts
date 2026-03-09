@@ -3,7 +3,7 @@ import { EMAIL_DIGEST } from '@/config/constants.js';
 import { createLogger } from '@/lib/logger.js';
 import { getSupabaseClient } from '@/lib/supabase.js';
 import { sendTelegramMessage } from '@/lib/telegram.js';
-import { formatWeeklyDigest } from '@/distribution/email-formatter.js';
+import { formatWeeklyDigest, type FeaturedListingEmail } from '@/distribution/email-formatter.js';
 import { sendBroadcast } from '@/distribution/kit-client.js';
 import { recordDistribution } from '@/distribution/telegram-distributor.js';
 import type { Opportunity } from '@/types/opportunity.js';
@@ -62,9 +62,39 @@ async function main(): Promise<void> {
 
   log.info('Fetched opportunities for digest', { count: opportunities.length });
 
+  // ── Step 1b: Query featured listings ────────────────────────────────────────
+
+  let featuredListings: FeaturedListingEmail[] = [];
+  try {
+    const supabase = getSupabaseClient();
+    const now = new Date().toISOString();
+
+    const { data: featuredData, error: featuredError } = await supabase
+      .from('featured_listings')
+      .select('org_name, opportunity_title, opportunity_url, opportunity_description')
+      .eq('is_active', true)
+      .or(`expires_at.is.null,expires_at.gt.${now}`);
+
+    if (featuredError) {
+      log.warn('Failed to query featured listings', { error: featuredError.message });
+    } else if (featuredData && featuredData.length > 0) {
+      featuredListings = featuredData.map((row) => ({
+        orgName: row.org_name as string,
+        opportunityTitle: row.opportunity_title as string,
+        opportunityUrl: row.opportunity_url as string,
+        opportunityDescription: (row.opportunity_description as string) ?? null,
+      }));
+      log.info('Fetched featured listings for digest', { count: featuredListings.length });
+    }
+  } catch (err) {
+    log.warn('Failed to query featured listings — proceeding without', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // ── Step 2: Format email ─────────────────────────────────────────────────────
 
-  const { subject, html } = formatWeeklyDigest(opportunities);
+  const { subject, html } = formatWeeklyDigest(opportunities, featuredListings);
   log.info('Formatted digest email', { subject, htmlBytes: html.length });
 
   // ── Step 3: Send broadcast ───────────────────────────────────────────────────

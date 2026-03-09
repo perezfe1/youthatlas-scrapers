@@ -12,6 +12,7 @@ const TYPE_EMOJI: Record<OpportunityType, string> = {
   competition: '🏆',
   training: '📚',
   job: '💼',
+  award: '🏆',
 };
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────

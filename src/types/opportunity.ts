@@ -1,19 +1,20 @@
 // --- Enums as const arrays (not string literals scattered through code) ---
 export const OPPORTUNITY_TYPES = [
   'scholarship', 'fellowship', 'internship', 'grant',
-  'conference', 'job', 'competition', 'training',
+  'conference', 'job', 'competition', 'training', 'award',
 ] as const;
 export type OpportunityType = typeof OPPORTUNITY_TYPES[number];
 
 export const REGIONS = [
   'global', 'africa', 'asia', 'europe', 'latin_america',
-  'north_america', 'middle_east', 'oceania',
+  'north_america', 'middle_east', 'oceania', 'caribbean',
 ] as const;
 export type Region = typeof REGIONS[number];
 
 export const EDUCATION_LEVELS = [
   'high_school', 'undergraduate', 'graduate',
   'postdoc', 'professional', 'any',
+  'young_professional', 'postgraduate', 'youth',
 ] as const;
 export type EducationLevel = typeof EDUCATION_LEVELS[number];
 

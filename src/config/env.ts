@@ -7,9 +7,10 @@ const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 
-// Extraction schema — Supabase + Anthropic (no Telegram needed)
+// Extraction schema — Supabase + Anthropic + OpenAI (no Telegram needed)
 const extractionEnvSchema = baseEnvSchema.extend({
   ANTHROPIC_API_KEY: z.string().min(1),
+  OPENAI_API_KEY: z.string().min(1),
 });
 
 export type ExtractionEnv = z.infer<typeof extractionEnvSchema>;
@@ -92,6 +93,31 @@ export type EmailEnv = z.infer<typeof emailEnvSchema>;
 /** Load and validate env vars needed for the weekly email digest. */
 export function loadEmailEnv(): EmailEnv {
   const result = emailEnvSchema.safeParse(process.env);
+
+  if (!result.success) {
+    const missing = result.error.issues
+      .map((i) => `  ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    console.error(`\n❌ Environment validation failed:\n${missing}\n`);
+    console.error('Copy .env.example to .env and fill in your credentials.\n');
+    process.exit(1);
+  }
+
+  return result.data;
+}
+
+// Reminders schema — Supabase + Resend + Telegram admin (no Anthropic, no Kit)
+const remindersEnvSchema = baseEnvSchema.extend({
+  RESEND_API_KEY: z.string().min(1),
+  TELEGRAM_BOT_TOKEN: z.string().min(1),
+  TELEGRAM_CHANNEL_ID: z.string().min(1),
+});
+
+export type RemindersEnv = z.infer<typeof remindersEnvSchema>;
+
+/** Load and validate env vars needed for the deadline reminders job. */
+export function loadRemindersEnv(): RemindersEnv {
+  const result = remindersEnvSchema.safeParse(process.env);
 
   if (!result.success) {
     const missing = result.error.issues

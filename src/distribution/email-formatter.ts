@@ -12,6 +12,7 @@ const TYPE_EMOJI: Record<OpportunityType, string> = {
   competition: '🏆',
   training:    '📚',
   job:         '👔',
+  award:       '🏆',
 };
 
 const TYPE_BADGE: Record<OpportunityType, { bg: string; color: string }> = {
@@ -23,6 +24,7 @@ const TYPE_BADGE: Record<OpportunityType, { bg: string; color: string }> = {
   competition: { bg: '#FFE4E6', color: '#9F1239' },
   training:    { bg: '#E0E7FF', color: '#3730A3' },
   job:         { bg: '#FFEDD5', color: '#9A3412' },
+  award:       { bg: '#FFE4E6', color: '#9F1239' },
 };
 
 const BASE_URL = 'https://youthatlas.com';
@@ -144,6 +146,92 @@ function renderOpportunityCard(opp: Opportunity): string {
   </tr>`;
 }
 
+// ── Featured listing type (for email digest) ────────────────────────────────
+
+export type FeaturedListingEmail = {
+  orgName: string;
+  opportunityTitle: string;
+  opportunityUrl: string;
+  opportunityDescription: string | null;
+};
+
+// ── Featured card ─────────────────────────────────────────────────────────────
+
+function renderFeaturedCard(listing: FeaturedListingEmail): string {
+  const title = escapeHtml(listing.opportunityTitle);
+  const org = escapeHtml(listing.orgName);
+  const url = listing.opportunityUrl;
+  const desc = listing.opportunityDescription
+    ? escapeHtml(truncate(listing.opportunityDescription, 200))
+    : '';
+
+  return `
+  <!-- Featured Card -->
+  <tr>
+    <td style="padding: 0 0 16px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="border: 1px solid #F59E0B; border-radius: 8px; background-color: #FFFBEB;">
+        <tr>
+          <td style="padding: 20px; border-radius: 8px;">
+
+            <!-- Featured badge -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="margin-bottom: 12px;">
+              <tr>
+                <td>
+                  <span style="display: inline-block; background-color: #FEF3C7; color: #92400E; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; font-family: Arial, Helvetica, sans-serif;">⭐ Featured</span>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Title -->
+            <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; line-height: 1.3; font-family: Arial, Helvetica, sans-serif;">
+              <a href="${url}" style="color: #B45309; text-decoration: none;">${title}</a>
+            </h3>
+
+            <!-- Organisation -->
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #78716C; font-family: Arial, Helvetica, sans-serif;">🏢 ${org}</p>
+
+            ${desc ? `<!-- Description -->
+            <p style="margin: 0 0 14px 0; font-size: 14px; color: #374151; line-height: 1.5; font-family: Arial, Helvetica, sans-serif;">${desc}</p>` : ''}
+
+            <!-- Learn More button -->
+            <table cellpadding="0" cellspacing="0" border="0" style="margin-top: 12px;">
+              <tr>
+                <td style="background-color: #F59E0B; border-radius: 6px;">
+                  <a href="${url}"
+                     style="display: inline-block; background-color: #F59E0B; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 10px 20px; border-radius: 6px; font-family: Arial, Helvetica, sans-serif;">Learn More →</a>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>`;
+}
+
+// ── Featured section renderer ────────────────────────────────────────────────
+
+function renderFeaturedSection(listings: FeaturedListingEmail[]): string {
+  if (listings.length === 0) return '';
+
+  const cards = listings.map(renderFeaturedCard).join('\n');
+
+  return `
+          <!-- Featured Opportunities Section -->
+          <tr>
+            <td style="background-color: #ffffff; padding: 0 32px 8px 32px;">
+              <h3 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 700; color: #92400E; font-family: Arial, Helvetica, sans-serif;">⭐ Featured Opportunities</h3>
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                ${cards}
+              </table>
+              <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 8px 0 0 0;">
+            </td>
+          </tr>`;
+}
+
 // ── Public formatter ───────────────────────────────────────────────────────────
 
 /**
@@ -151,15 +239,19 @@ function renderOpportunityCard(opp: Opportunity): string {
  * Returns the email subject and HTML body with inline styles.
  * HTML is table-based with inline styles for maximum email client compatibility
  * (Gmail, Outlook, Apple Mail).
+ *
+ * Optionally includes a featured listings section at the top.
  */
 export function formatWeeklyDigest(
   opportunities: Opportunity[],
+  featuredListings?: FeaturedListingEmail[],
 ): { subject: string; html: string } {
   const count = opportunities.length;
   const subject = `YouthAtlas Weekly: ${count} New Opportunit${count === 1 ? 'y' : 'ies'} This Week`;
 
   const capped = opportunities.slice(0, EMAIL_DIGEST.MAX_OPPORTUNITIES);
   const cards = capped.map(renderOpportunityCard).join('\n');
+  const featuredSection = renderFeaturedSection(featuredListings ?? []);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -204,6 +296,8 @@ export function formatWeeklyDigest(
               <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 0 0 20px 0;">
             </td>
           </tr>
+
+          ${featuredSection}
 
           <!-- ③ Opportunity Cards -->
           <tr>

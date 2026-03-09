@@ -23,6 +23,9 @@
     "distribute:email": "tsx src/distribution/email-digest.ts",
     "digest:email": "tsx --env-file .env src/distribution/run-email-digest.ts",
     "digest:email:ci": "tsx src/distribution/run-email-digest.ts",
+    "reminders": "tsx --env-file .env src/reminders/run-reminders.ts",
+    "reminders:ci": "tsx src/reminders/run-reminders.ts",
+    "backfill:embeddings": "tsx --env-file .env src/processing/backfill-embeddings.ts",
     "migrate:combined": "cat supabase/migrations/*.sql",
     "type-check": "tsc --noEmit",
     "build": "tsc"
@@ -32,7 +35,9 @@
     "@supabase/supabase-js": "2.58.0",
     "crawlee": "3.12.1",
     "fuzzball": "2.1.3",
+    "openai": "^6.27.0",
     "playwright": "1.58.2",
+    "resend": "^6.9.3",
     "zod": "3.24.1"
   },
   "devDependencies": {

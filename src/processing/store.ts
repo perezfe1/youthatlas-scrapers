@@ -1,9 +1,15 @@
 import { createHash } from 'crypto';
+
 import { createLogger } from '@/lib/logger.js';
 import { getSupabaseClient } from '@/lib/supabase.js';
+import { generateEmbedding } from '@/lib/openai.js';
 import type { ExtractedItem } from '@/processing/deduplication.js';
 
 const log = createLogger('store');
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -170,6 +176,20 @@ export async function storeBatch(
   for (const item of items) {
     const isUpdate = existingUrls.has(item.sourceUrl);
     const row = toDbRow(item, sourceSite);
+
+    // Generate embedding (best-effort — a failure never blocks the upsert)
+    const embeddingText = `${item.title}. ${item.summary ?? item.description ?? ''}`.slice(0, 8000);
+    const embResult = await generateEmbedding(embeddingText);
+    if (embResult.data) {
+      row.embedding = JSON.stringify(embResult.data);
+    } else {
+      log.warn('Embedding generation failed — storing without embedding', {
+        title: item.title,
+        error: embResult.error.message,
+      });
+    }
+    // 100ms delay between embedding calls (OpenAI rate limit safety)
+    await sleep(100);
 
     try {
       const { error } = await supabase
