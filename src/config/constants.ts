@@ -42,8 +42,8 @@ export const EMAIL_DIGEST = {
 } as const;
 
 export const PROCESSING = {
-  /** Claude model for extraction (claude-haiku-4-5-20251001 confirmed in SDK 0.32.1) */
-  MODEL: 'claude-haiku-4-5-20251001' as const,
+  /** OpenAI model for extraction (switched from Claude Haiku for ~5× cost reduction) */
+  MODEL: 'gpt-4o-mini' as const,
   /** Max tokens for extraction response */
   MAX_TOKENS: 2048,
 } as const;

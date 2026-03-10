@@ -36,7 +36,7 @@ function parseArgs(): PipelineOptions {
 }
 
 async function main(): Promise<void> {
-  // Validate Supabase + Anthropic env vars before anything else
+  // Validate Supabase + OpenAI env vars before anything else
   loadExtractionEnv();
 
   const options = parseArgs();

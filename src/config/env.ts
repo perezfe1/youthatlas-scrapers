@@ -7,15 +7,14 @@ const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 
-// Extraction schema — Supabase + Anthropic + OpenAI (no Telegram needed)
+// Extraction schema — Supabase + OpenAI (no Telegram needed)
 const extractionEnvSchema = baseEnvSchema.extend({
-  ANTHROPIC_API_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
 });
 
 export type ExtractionEnv = z.infer<typeof extractionEnvSchema>;
 
-/** Load and validate Supabase + Anthropic env vars. Use this in extraction modules. */
+/** Load and validate Supabase + OpenAI env vars. Use this in extraction modules. */
 export function loadExtractionEnv(): ExtractionEnv {
   const result = extractionEnvSchema.safeParse(process.env);
 
@@ -33,7 +32,7 @@ export function loadExtractionEnv(): ExtractionEnv {
 
 // Full schema — everything needed for the complete pipeline
 const fullEnvSchema = baseEnvSchema.extend({
-  ANTHROPIC_API_KEY: z.string().min(1),
+  OPENAI_API_KEY: z.string().min(1),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   TELEGRAM_CHANNEL_ID: z.string().min(1),
   ADMIN_TELEGRAM_ID: z.string().min(1),

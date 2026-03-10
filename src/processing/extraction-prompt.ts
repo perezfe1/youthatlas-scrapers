@@ -34,7 +34,8 @@ Given the raw HTML of an opportunity page, extract structured data and return it
 4. For regions: map countries to their region. Nigeria → africa. Germany → europe. "Open to all" → global. Multiple countries across continents → list all relevant regions.
 5. Clean all text values: no HTML tags, no excessive whitespace, no "Click here" or "Apply now" button text.
 6. For application_url: look for "Apply", "Apply Now", "Application Form", "Official Link" buttons/links. Return the href, not the display text. Skip youthop.com/link?u= redirects — extract the actual destination URL from the query parameter if possible.
-7. Return ONLY valid JSON. No trailing commas, no comments, no undefined values.`;
+7. Return ONLY valid JSON. No trailing commas, no comments, no undefined values.
+8. Respond with valid JSON only — no markdown fences, no prose, no explanation.`;
 
 /**
  * Build the user prompt for a specific page.

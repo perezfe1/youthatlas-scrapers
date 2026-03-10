@@ -1,6 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
+
 import { PROCESSING } from '@/config/constants.js';
 import { createLogger } from '@/lib/logger.js';
+import { getOpenAIClient } from '@/lib/openai-client.js';
 import { getSupabaseClient } from '@/lib/supabase.js';
 import { EXTRACTION_SYSTEM_PROMPT, buildUserPrompt } from '@/processing/extraction-prompt.js';
 import { extractedOpportunitySchema, type ValidatedExtraction } from '@/processing/extraction-schema.js';
@@ -25,58 +27,44 @@ export interface ExtractionSummary {
 }
 
 /**
- * Initialize the Anthropic client.
- * Reads ANTHROPIC_API_KEY from environment.
- * We don't use loadEnv() here because the extractor only needs
- * ANTHROPIC_API_KEY + Supabase vars (for flagging).
- */
-function getAnthropicClient(): Anthropic {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY is not set in environment');
-  }
-  return new Anthropic({ apiKey });
-}
-
-/**
- * Extract structured data from a single scraped page using Claude.
+ * Extract structured data from a single scraped page using GPT-4o-mini.
  * Returns the validated extraction or null with an error message.
  */
 async function extractSinglePage(
-  client: Anthropic,
+  client: OpenAI,
   page: ScrapedPage,
 ): Promise<ExtractionResult> {
   const { sourceUrl, title, rawHtml } = page;
 
   try {
-    // 1. Call Claude API
-    log.debug('Calling Claude API', { sourceUrl, model: PROCESSING.MODEL });
+    // 1. Call OpenAI API
+    log.debug('Calling OpenAI API', { sourceUrl, model: PROCESSING.MODEL });
 
-    const response = await client.messages.create({
+    const response = await client.chat.completions.create({
       model: PROCESSING.MODEL,
-      max_tokens: PROCESSING.MAX_TOKENS,
-      system: EXTRACTION_SYSTEM_PROMPT,
       messages: [
-        {
-          role: 'user',
-          content: buildUserPrompt(title, sourceUrl, rawHtml),
-        },
+        { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
+        { role: 'user', content: buildUserPrompt(title, sourceUrl, rawHtml) },
       ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1,
+      max_tokens: PROCESSING.MAX_TOKENS,
     });
 
     // 2. Extract text from response
-    const textBlock = response.content.find((block) => block.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
+    const raw = response.choices[0]?.message?.content;
+    if (!raw) {
       return {
         sourceUrl,
         extraction: null,
-        error: 'Claude returned no text content',
+        error: 'OpenAI returned no content',
       };
     }
 
-    const rawText = textBlock.text.trim();
+    const rawText = raw.trim();
 
-    // 3. Parse JSON — handle markdown fences if Claude adds them despite instructions
+    // 3. Parse JSON — response_format: json_object should guarantee valid JSON,
+    //    but we handle fences defensively just in case
     let jsonText = rawText;
     if (jsonText.startsWith('```')) {
       jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
@@ -109,8 +97,8 @@ async function extractSinglePage(
     // 5. Log token usage
     log.debug('Extraction succeeded', {
       sourceUrl,
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
+      promptTokens: response.usage?.prompt_tokens,
+      completionTokens: response.usage?.completion_tokens,
     });
 
     return {
@@ -121,12 +109,12 @@ async function extractSinglePage(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
 
-    // Handle specific API errors
-    if (err instanceof Anthropic.APIError) {
+    // Handle specific OpenAI API errors
+    if (err instanceof OpenAI.APIError) {
       return {
         sourceUrl,
         extraction: null,
-        error: `Claude API error (${err.status}): ${err.message}`,
+        error: `OpenAI API error (${err.status}): ${err.message}`,
       };
     }
 
@@ -186,7 +174,7 @@ export async function extractPages(
   }
 
   try {
-    const client = getAnthropicClient();
+    const client = getOpenAIClient();
     const results: ExtractionResult[] = [];
     let succeeded = 0;
     let failed = 0;
@@ -216,8 +204,6 @@ export async function extractPages(
       }
 
       // Brief pause between API calls to be respectful
-      // The Anthropic SDK handles rate limiting automatically,
-      // but a small delay smooths out request patterns
       if (i < pages.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
