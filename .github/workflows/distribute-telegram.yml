@@ -21,7 +21,7 @@ jobs:
 
     # On workflow_run: only proceed if the ingest pipeline succeeded.
     # On workflow_dispatch: always run.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion != 'cancelled' }}
 
     steps:
       - name: Checkout
