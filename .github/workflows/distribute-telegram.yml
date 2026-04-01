@@ -18,6 +18,8 @@ jobs:
   distribute:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     # On workflow_run: only proceed if the ingest pipeline succeeded.
     # On workflow_dispatch: always run.
@@ -30,7 +32,7 @@ jobs:
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
