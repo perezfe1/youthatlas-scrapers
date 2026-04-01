@@ -9,7 +9,7 @@ export const SCRAPING = {
 
 export const DEDUPLICATION = {
   /** Fuzzy match threshold (0-100). Above this = duplicate. */
-  FUZZY_THRESHOLD: 85,
+  FUZZY_THRESHOLD: 78,
 } as const;
 
 export const TELEGRAM = {

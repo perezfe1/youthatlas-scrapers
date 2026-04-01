@@ -19,7 +19,7 @@ export type ExtractedItem = ExtractedOpportunity & { sourceUrl: string };
 export type DuplicateMatch = {
   item: ExtractedItem;
   matchedTitle: string;
-  matchType: 'hash' | 'fuzzy';
+  matchType: 'hash' | 'url' | 'fuzzy';
   score: number; // 100 for hash matches, actual fuzzball score for fuzzy
 };
 
@@ -30,6 +30,7 @@ export type DeduplicationResult = {
     total: number;
     uniqueCount: number;
     hashDuplicates: number;
+    urlDuplicates: number;
     fuzzyDuplicates: number;
   };
 };
@@ -130,6 +131,73 @@ function intraBatchHashDedup(items: ExtractedItem[]): {
   return { unique, duplicates };
 }
 
+// ── Phase 1b: URL-based cross-batch dedup ────────────────────────────────────
+
+/**
+ * Check each item's sourceUrl and application_url against existing DB records.
+ * If a URL already exists in opportunities.source_url or opportunities.application_url,
+ * the item is a duplicate. Falls back gracefully — never blocks the pipeline.
+ */
+async function urlBasedDedup(items: ExtractedItem[]): Promise<{
+  unique: ExtractedItem[];
+  duplicates: DuplicateMatch[];
+}> {
+  const allUrls = [
+    ...items.map((i) => i.sourceUrl),
+    ...items.map((i) => i.application_url).filter((u): u is string => u !== null),
+  ];
+
+  if (allUrls.length === 0) return { unique: items, duplicates: [] };
+
+  let seenUrls = new Set<string>();
+
+  try {
+    const supabase = getSupabaseClient();
+    const [sourceRes, appRes] = await Promise.all([
+      supabase.from('opportunities').select('source_url').in('source_url', allUrls),
+      supabase.from('opportunities').select('application_url').in('application_url', allUrls),
+    ]);
+
+    if (sourceRes.error || appRes.error) {
+      log.warn('URL dedup DB query error — skipping URL dedup phase', {
+        sourceError: sourceRes.error?.message,
+        appError: appRes.error?.message,
+      });
+      return { unique: items, duplicates: [] };
+    }
+
+    for (const row of sourceRes.data ?? []) {
+      if (row.source_url) seenUrls.add(row.source_url as string);
+    }
+    for (const row of appRes.data ?? []) {
+      if (row.application_url) seenUrls.add(row.application_url as string);
+    }
+  } catch (err) {
+    log.warn('URL dedup query crashed — skipping URL dedup phase', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { unique: items, duplicates: [] };
+  }
+
+  const unique: ExtractedItem[] = [];
+  const duplicates: DuplicateMatch[] = [];
+
+  for (const item of items) {
+    const matchedUrl =
+      (item.sourceUrl && seenUrls.has(item.sourceUrl) ? item.sourceUrl : null) ??
+      (item.application_url && seenUrls.has(item.application_url) ? item.application_url : null);
+
+    if (matchedUrl) {
+      log.info(`URL duplicate ${item.title} matched existing URL ${matchedUrl}`);
+      duplicates.push({ item, matchedTitle: matchedUrl, matchType: 'url', score: 100 });
+    } else {
+      unique.push(item);
+    }
+  }
+
+  return { unique, duplicates };
+}
+
 // ── DB fetch ──────────────────────────────────────────────────────────────────
 
 /** Fetch active opportunities from Supabase for cross-batch comparison. */
@@ -216,18 +284,23 @@ export async function deduplicateBatch(
 
   const { unique: intraUnique, duplicates: intraDuplicates } = intraBatchHashDedup(items);
 
+  // Phase 1b: URL-based cross-batch dedup
+  const { unique: urlFiltered, duplicates: urlDupMatches } = await urlBasedDedup(intraUnique);
+  log.info('URL dedup complete', { urlDuplicates: urlDupMatches.length });
+
   const existingRecords = await fetchExistingRecords();
   log.info('Loaded existing DB records for cross-batch comparison', {
     count: existingRecords.length,
   });
 
-  const { unique, duplicates: crossDuplicates } = crossBatchDedup(intraUnique, existingRecords);
+  const { unique, duplicates: crossDuplicates } = crossBatchDedup(urlFiltered, existingRecords);
 
-  const allDuplicates = [...intraDuplicates, ...crossDuplicates];
+  const allDuplicates = [...intraDuplicates, ...urlDupMatches, ...crossDuplicates];
   const stats = {
     total: items.length,
     uniqueCount: unique.length,
     hashDuplicates: allDuplicates.filter((d) => d.matchType === 'hash').length,
+    urlDuplicates: allDuplicates.filter((d) => d.matchType === 'url').length,
     fuzzyDuplicates: allDuplicates.filter((d) => d.matchType === 'fuzzy').length,
   };
 
