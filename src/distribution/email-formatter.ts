@@ -11,7 +11,6 @@ const TYPE_EMOJI: Record<OpportunityType, string> = {
   conference:  '🎤',
   competition: '🏆',
   training:    '📚',
-  job:         '👔',
   award:       '🏆',
 };
 
@@ -23,7 +22,6 @@ const TYPE_BADGE: Record<OpportunityType, { bg: string; color: string }> = {
   conference:  { bg: '#CCFBF1', color: '#115E59' },
   competition: { bg: '#FFE4E6', color: '#9F1239' },
   training:    { bg: '#E0E7FF', color: '#3730A3' },
-  job:         { bg: '#FFEDD5', color: '#9A3412' },
   award:       { bg: '#FFE4E6', color: '#9F1239' },
 };
 

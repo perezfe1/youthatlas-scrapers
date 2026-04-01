@@ -1,7 +1,7 @@
 // --- Enums as const arrays (not string literals scattered through code) ---
 export const OPPORTUNITY_TYPES = [
   'scholarship', 'fellowship', 'internship', 'grant',
-  'conference', 'job', 'competition', 'training', 'award',
+  'conference', 'competition', 'training', 'award',
 ] as const;
 export type OpportunityType = typeof OPPORTUNITY_TYPES[number];
 

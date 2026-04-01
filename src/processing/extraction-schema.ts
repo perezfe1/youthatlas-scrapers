@@ -29,7 +29,11 @@ export const extractedOpportunitySchema = z.object({
 
   type: z
     .string()
-    .transform((val) => (val === 'award' ? 'competition' : val))
+    .transform((val) => {
+      if (val === 'award') return 'competition';
+      if (val === 'job') return 'internship';
+      return val;
+    })
     .pipe(z.enum(OPPORTUNITY_TYPES)),
 
   fields: z

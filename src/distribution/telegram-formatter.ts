@@ -11,7 +11,6 @@ const TYPE_EMOJI: Record<OpportunityType, string> = {
   conference: '🎤',
   competition: '🏆',
   training: '📚',
-  job: '💼',
   award: '🏆',
 };
 
