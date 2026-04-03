@@ -169,15 +169,89 @@ export async function getUsersWithUpcomingDeadlines(
       log.info('Skipped users with no email', { skipped: skippedUsers.size });
     }
 
-    // ── Step 6: assemble UserReminder[] ──────────────────────────────────────
+    // ── Step 6: filter out users who opted out of reminders ────────────────
+
+    let optedOutIds = new Set<string>();
+    try {
+      const { data: prefs, error: prefsError } = await supabase
+        .from('reminder_preferences')
+        .select('user_id')
+        .eq('reminders_enabled', false);
+
+      if (prefsError) {
+        log.warn('Failed to query reminder_preferences — proceeding without filter', {
+          error: prefsError.message,
+        });
+      } else if (prefs && prefs.length > 0) {
+        optedOutIds = new Set(
+          (prefs as { user_id: string }[]).map((p) => p.user_id),
+        );
+        log.info('Opted-out users found', { count: optedOutIds.size });
+      }
+    } catch (prefErr) {
+      log.warn('Unexpected error querying reminder_preferences — proceeding without filter', {
+        error: prefErr instanceof Error ? prefErr.message : String(prefErr),
+      });
+    }
+
+    // ── Step 7: assemble UserReminder[] ──────────────────────────────────────
 
     const reminders: UserReminder[] = [];
     for (const [userId, opportunities] of userOppMap) {
+      if (optedOutIds.has(userId)) continue;
       reminders.push({ userId, email: emailMap.get(userId)!, opportunities });
     }
 
     log.info('Assembled user reminders', { users: reminders.length });
     return { data: reminders, error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: {
+        code: 'UNEXPECTED',
+        message: err instanceof Error ? err.message : String(err),
+      },
+    };
+  }
+}
+
+/**
+ * Get or create an unsubscribe token for a user.
+ * Inserts a row into reminder_preferences if none exists, then returns the token.
+ */
+export async function getOrCreateUnsubscribeToken(
+  userId: string,
+): Promise<Result<string>> {
+  try {
+    const supabase = getSupabaseClient();
+
+    // Upsert — on conflict do nothing (keeps existing row intact)
+    await supabase
+      .from('reminder_preferences')
+      .upsert({ user_id: userId, reminders_enabled: true }, { onConflict: 'user_id' });
+
+    const { data, error } = await supabase
+      .from('reminder_preferences')
+      .select('unsubscribe_token')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return {
+        data: null,
+        error: { code: 'DB_ERROR', message: `Failed to get unsubscribe token: ${error.message}` },
+      };
+    }
+
+    if (!data) {
+      return {
+        data: null,
+        error: { code: 'NOT_FOUND', message: 'No reminder_preferences row found after upsert' },
+      };
+    }
+
+    return { data: (data as { unsubscribe_token: string }).unsubscribe_token, error: null };
   } catch (err) {
     return {
       data: null,

@@ -64,7 +64,10 @@ function buildCard(opp: ReminderOpportunity): string {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export function formatReminderEmail(reminder: UserReminder): { subject: string; html: string } {
+export function formatReminderEmail(
+  reminder: UserReminder,
+  unsubscribeToken?: string,
+): { subject: string; html: string } {
   const n = reminder.opportunities.length;
   const subject = `⏰ ${n} opportunit${n === 1 ? 'y' : 'ies'} closing in 3 days`;
 
@@ -109,10 +112,14 @@ export function formatReminderEmail(reminder: UserReminder): { subject: string; 
             <td style="background-color:#F9FAFB;border-radius:0 0 12px 12px;padding:20px 32px;
                        text-align:center;border:1px solid #E5E7EB;border-top:none;">
               <p style="margin:0;color:#6B7280;font-size:12px;line-height:1.7;">
-                You&#8217;re receiving this because you saved this opportunity on YouthAtlas.<br>
+                You&#8217;re receiving this because you saved opportunities on YouthAtlas.<br>
                 <a href="https://youthatlas.com/dashboard"
                    style="color:#1E40AF;text-decoration:underline;">Manage your saved opportunities</a>
-              </p>
+              </p>${unsubscribeToken ? `
+              <p style="margin:10px 0 0;color:#9CA3AF;font-size:11px;">
+                <a href="https://youthatlas.com/api/reminders/unsubscribe?token=${htmlEscape(unsubscribeToken)}"
+                   style="color:#9CA3AF;text-decoration:underline;">Unsubscribe from deadline reminders</a>
+              </p>` : ''}
             </td>
           </tr>
 

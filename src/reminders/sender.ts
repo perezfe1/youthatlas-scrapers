@@ -3,6 +3,7 @@ import { Resend } from 'resend';
 import { loadRemindersEnv } from '@/config/env.js';
 import { createLogger } from '@/lib/logger.js';
 import { formatReminderEmail } from './email-template.js';
+import { getOrCreateUnsubscribeToken } from './query.js';
 
 import type { Result } from '@/types/opportunity.js';
 import type { UserReminder, ReminderResult } from './types.js';
@@ -24,7 +25,19 @@ export async function sendReminderEmails(
   const result: ReminderResult = { sent: 0, failed: 0, skipped: 0 };
 
   for (const reminder of reminders) {
-    const { subject, html } = formatReminderEmail(reminder);
+    // Fetch unsubscribe token — best-effort, email still sends without it
+    let unsubscribeToken: string | undefined;
+    const tokenResult = await getOrCreateUnsubscribeToken(reminder.userId);
+    if (tokenResult.error) {
+      log.warn('Failed to get unsubscribe token — sending without it', {
+        userId: reminder.userId,
+        error: tokenResult.error.message,
+      });
+    } else {
+      unsubscribeToken = tokenResult.data;
+    }
+
+    const { subject, html } = formatReminderEmail(reminder, unsubscribeToken);
 
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
