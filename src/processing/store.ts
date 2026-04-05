@@ -177,19 +177,22 @@ export async function storeBatch(
     const isUpdate = existingUrls.has(item.sourceUrl);
     const row = toDbRow(item, sourceSite);
 
-    // Generate embedding (best-effort — a failure never blocks the upsert)
-    const embeddingText = `${item.title}. ${item.summary ?? item.description ?? ''}`.slice(0, 8000);
-    const embResult = await generateEmbedding(embeddingText);
-    if (embResult.data) {
-      row.embedding = JSON.stringify(embResult.data);
-    } else {
-      log.warn('Embedding generation failed — storing without embedding', {
-        title: item.title,
-        error: embResult.error.message,
-      });
+    // Generate embedding only for new opportunities — updates keep their existing embedding.
+    // This cuts OpenAI API costs by ~90% since most daily runs are updates.
+    if (!isUpdate) {
+      const embeddingText = `${item.title}. ${item.summary ?? item.description ?? ''}`.slice(0, 8000);
+      const embResult = await generateEmbedding(embeddingText);
+      if (embResult.data) {
+        row.embedding = JSON.stringify(embResult.data);
+      } else {
+        log.warn('Embedding generation failed — storing without embedding', {
+          title: item.title,
+          error: embResult.error.message,
+        });
+      }
+      // 100ms delay between embedding calls (OpenAI rate limit safety)
+      await sleep(100);
     }
-    // 100ms delay between embedding calls (OpenAI rate limit safety)
-    await sleep(100);
 
     try {
       const { error } = await supabase
