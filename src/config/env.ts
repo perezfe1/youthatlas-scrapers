@@ -7,14 +7,15 @@ const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 
-// Extraction schema — Supabase + OpenAI (no Telegram needed)
+// Extraction schema — Supabase + Google AI + OpenAI for embeddings (no Telegram needed)
 const extractionEnvSchema = baseEnvSchema.extend({
+  GOOGLE_AI_API_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
 });
 
 export type ExtractionEnv = z.infer<typeof extractionEnvSchema>;
 
-/** Load and validate Supabase + OpenAI env vars. Use this in extraction modules. */
+/** Load and validate Supabase + Google AI + OpenAI env vars. Use this in extraction modules. */
 export function loadExtractionEnv(): ExtractionEnv {
   const result = extractionEnvSchema.safeParse(process.env);
 

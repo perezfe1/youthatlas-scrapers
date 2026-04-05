@@ -42,8 +42,8 @@ export const EMAIL_DIGEST = {
 } as const;
 
 export const PROCESSING = {
-  /** OpenAI model for extraction (switched from Claude Haiku for ~5× cost reduction) */
-  MODEL: 'gpt-4o-mini' as const,
+  /** Gemini model for extraction (switched from GPT-4o-mini for cost reduction) */
+  MODEL: 'gemini-2.5-flash' as const,
   /** Max tokens for extraction response */
   MAX_TOKENS: 2048,
 } as const;

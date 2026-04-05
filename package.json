@@ -31,6 +31,7 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "2.58.0",
     "crawlee": "3.12.1",
     "fuzzball": "2.1.3",

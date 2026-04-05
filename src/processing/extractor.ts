@@ -1,8 +1,6 @@
-import OpenAI from 'openai';
-
 import { PROCESSING } from '@/config/constants.js';
 import { createLogger } from '@/lib/logger.js';
-import { getOpenAIClient } from '@/lib/openai-client.js';
+import { getGeminiClient } from '@/lib/gemini-client.js';
 import { getSupabaseClient } from '@/lib/supabase.js';
 import { EXTRACTION_SYSTEM_PROMPT, buildUserPrompt } from '@/processing/extraction-prompt.js';
 import { extractedOpportunitySchema, type ValidatedExtraction } from '@/processing/extraction-schema.js';
@@ -27,43 +25,45 @@ export interface ExtractionSummary {
 }
 
 /**
- * Extract structured data from a single scraped page using GPT-4o-mini.
+ * Extract structured data from a single scraped page using Gemini 1.5 Flash.
  * Returns the validated extraction or null with an error message.
  */
 async function extractSinglePage(
-  client: OpenAI,
   page: ScrapedPage,
 ): Promise<ExtractionResult> {
   const { sourceUrl, title, rawHtml } = page;
 
   try {
-    // 1. Call OpenAI API
-    log.debug('Calling OpenAI API', { sourceUrl, model: PROCESSING.MODEL });
+    // 1. Call Gemini API
+    log.debug('Calling Gemini API', { sourceUrl, model: PROCESSING.MODEL });
 
-    const response = await client.chat.completions.create({
-      model: PROCESSING.MODEL,
-      messages: [
-        { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(title, sourceUrl, rawHtml) },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      max_tokens: PROCESSING.MAX_TOKENS,
+    const genAI = getGeminiClient();
+    const model = genAI.getGenerativeModel({ model: PROCESSING.MODEL });
+
+    const fullPrompt = `${EXTRACTION_SYSTEM_PROMPT}\n\n${buildUserPrompt(title, sourceUrl, rawHtml)}`;
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: 'application/json',
+        maxOutputTokens: PROCESSING.MAX_TOKENS,
+      },
     });
 
     // 2. Extract text from response
-    const raw = response.choices[0]?.message?.content;
+    const raw = result.response.text();
     if (!raw) {
       return {
         sourceUrl,
         extraction: null,
-        error: 'OpenAI returned no content',
+        error: 'Gemini returned no content',
       };
     }
 
     const rawText = raw.trim();
 
-    // 3. Parse JSON — response_format: json_object should guarantee valid JSON,
+    // 3. Parse JSON — responseMimeType: 'application/json' should guarantee valid JSON,
     //    but we handle fences defensively just in case
     let jsonText = rawText;
     if (jsonText.startsWith('```')) {
@@ -94,12 +94,8 @@ async function extractSinglePage(
       };
     }
 
-    // 5. Log token usage
-    log.debug('Extraction succeeded', {
-      sourceUrl,
-      promptTokens: response.usage?.prompt_tokens,
-      completionTokens: response.usage?.completion_tokens,
-    });
+    // 5. Log success
+    log.debug('Extraction succeeded', { sourceUrl });
 
     return {
       sourceUrl,
@@ -108,15 +104,6 @@ async function extractSinglePage(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-
-    // Handle specific OpenAI API errors
-    if (err instanceof OpenAI.APIError) {
-      return {
-        sourceUrl,
-        extraction: null,
-        error: `OpenAI API error (${err.status}): ${err.message}`,
-      };
-    }
 
     return {
       sourceUrl,
@@ -174,7 +161,6 @@ export async function extractPages(
   }
 
   try {
-    const client = getOpenAIClient();
     const results: ExtractionResult[] = [];
     let succeeded = 0;
     let failed = 0;
@@ -188,7 +174,7 @@ export async function extractPages(
         sourceUrl: page.sourceUrl,
       });
 
-      const result = await extractSinglePage(client, page);
+      const result = await extractSinglePage(page);
       results.push(result);
 
       if (result.extraction) {
