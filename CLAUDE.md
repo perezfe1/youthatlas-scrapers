@@ -2,14 +2,14 @@
 
 ## What This Is
 
-Automated pipeline that scrapes opportunity listings from 15+ websites, processes them with Claude AI, stores in Supabase, and distributes to Telegram + email. Runs daily via GitHub Actions.
+Automated pipeline that scrapes opportunity listings from 15+ websites, processes them with Google Gemini AI, stores in Supabase, and distributes to Telegram + email. Runs daily via GitHub Actions.
 
 ## Project Status
 
 ### Phase 1 — Scraper Pipeline (COMPLETE)
 All 9 modules done:
 - 5 scrapers: YouthOp, OFY (OpportunityForYouth), OpDesk, AfterSchool, ScholAds
-- AI extraction via Claude Haiku (Zod-validated output)
+- AI extraction via Google Gemini 2.5 Flash (Zod-validated output)
 - Supabase storage with dedup (insert + 23505 silent skip)
 - Daily automated pipeline via GitHub Actions (`ingest.yml`)
 - Telegram health monitoring (scrape_runs + flagged_listings logging)
@@ -24,7 +24,8 @@ All 9 modules done:
 
 - Node.js / TypeScript (strict) / ESM modules
 - Crawlee (scraping framework)
-- Claude API via `@anthropic-ai/sdk` — model: `claude-haiku-4-5-20251001`
+- Google Gemini via `@google/generative-ai` — model: `gemini-2.5-flash` (extraction)
+- OpenAI via `openai` — model: `text-embedding-3-small` (embeddings only, 1536 dimensions)
 - Supabase (shared DB with the platform)
 - Kit (ConvertKit) — email newsletter (API v3 for broadcasts, API v4 for subscriber listing)
 - GitHub Actions (cron scheduling)
@@ -73,7 +74,8 @@ All 9 modules done:
 ### Ingest pipeline only
 | Var | Purpose |
 |-----|---------|
-| `ANTHROPIC_API_KEY` | Claude Haiku for AI extraction |
+| `GOOGLE_AI_API_KEY` | Google Gemini for AI extraction (`gemini-2.5-flash`) |
+| `OPENAI_API_KEY` | OpenAI for embeddings (`text-embedding-3-small`) |
 
 > ⚠️ `TELEGRAM_CHANNEL_ID` (admin) ≠ `TELEGRAM_PUBLIC_CHANNEL_ID` (public). Using the wrong one silently fails.
 > ⚠️ Kit broadcasts are drafts — `POST /v3/broadcasts` creates a draft only. Must be published in the Kit dashboard.
@@ -83,7 +85,7 @@ All 9 modules done:
 1. **Every async function returns `Result<T>`** (see `src/types/opportunity.ts`). Never throw.
 2. **Env vars validated via Zod** in `src/config/env.ts`. Never use raw `process.env`. Call the appropriate `load*Env()` at the top of every entry point.
 3. **All scrapers extend the base scraper pattern** in `src/scrapers/base-scraper.ts`. Includes retry logic, rate limiting, and run logging.
-4. **Claude API output is ALWAYS validated with Zod** before storing. Never trust raw LLM output.
+4. **AI model output is ALWAYS validated with Zod** before storing. Never trust raw LLM output.
 5. **Scraping and distribution are decoupled.** Separate GitHub Actions workflows. If distribution fails, scraping still succeeds.
 6. **One scraper per file.** One processing concern per file. One distribution channel per file.
 7. **Record every pipeline run** in the `scrape_runs` table. Log failures to `flagged_listings`.
@@ -93,6 +95,7 @@ All 9 modules done:
 
 - `src/config/env.ts`
 - `src/types/opportunity.ts` (shared contract — changes must be mirrored in platform repo)
+- `src/lib/gemini-client.ts` (Gemini singleton — do not modify without updating extraction flow)
 
 ## Key Files
 
@@ -103,7 +106,8 @@ All 9 modules done:
 | `src/config/constants.ts` | All magic numbers: rate limits, thresholds, model name, `EMAIL_DIGEST` settings |
 | `src/pipeline/run.ts` | CLI entry point for full scrape + extract + store pipeline |
 | `src/scrapers/base-scraper.ts` | Base class with retry, rate limiting, run logging |
-| `src/processing/extract.ts` | Claude Haiku extraction + Zod validation |
+| `src/processing/extractor.ts` | Gemini 2.5 Flash extraction + Zod validation |
+| `src/lib/gemini-client.ts` | Gemini client singleton (`getGeminiClient()`) |
 | `src/processing/store.ts` | Supabase upsert with dedup |
 | `src/distribution/run-telegram.ts` | CLI entry: post new opps to Telegram |
 | `src/distribution/telegram-distributor.ts` | Core logic: query unsent opps, post, record in `distribution_log` |
