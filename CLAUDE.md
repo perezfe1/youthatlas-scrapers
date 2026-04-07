@@ -21,6 +21,8 @@ All 9 modules done:
 | Telegram auto-posting | `distribute-telegram.yml` triggers after each ingest; posts to @youthatlas1 |
 | Weekly email digest | `weekly-digest.yml` runs Monday 8 AM UTC; Kit v3 broadcast (draft — publish in Kit dashboard) |
 | Deadline reminders | `deadline-reminders.yml` runs daily 10 AM UTC; Resend transactional email |
+| Personalized digest | `personalized-digest.yml` runs Monday 8 AM UTC; individual Resend email per user with matching opps |
+| Web push notifications | `push-notifications.yml` triggers after ingest; web-push to all `push_subscriptions` subscribers |
 
 ## Tech Stack
 
@@ -41,6 +43,8 @@ All 9 modules done:
 | `distribute-telegram.yml` | "Telegram Distribution" | On completion of "Daily Ingest Pipeline" | Post new listings to @youthatlas1 |
 | `weekly-digest.yml` | "Weekly Email Digest" | Monday 8 AM UTC | Send Kit v3 broadcast draft |
 | `deadline-reminders.yml` | "Deadline Reminders" | Daily 10 AM UTC | Email users with upcoming deadlines |
+| `personalized-digest.yml` | "Personalized Weekly Digest" | Monday 8 AM UTC | Per-user Resend email based on type/region prefs |
+| `push-notifications.yml` | "Push Notifications" | On completion of "Daily Ingest Pipeline" | Web Push to all push_subscriptions subscribers |
 | `type-check.yml` | "Type Check" | On push/PR | TypeScript validation |
 
 ## Package Scripts
@@ -53,6 +57,8 @@ All 9 modules done:
 | `distribute:telegram` / `distribute:telegram:ci` | .env / CI | Post new opps to Telegram |
 | `digest:email` / `digest:email:ci` | .env / CI | Send weekly email digest |
 | `reminders` / `reminders:ci` | .env / CI | Send deadline reminder emails |
+| `digest:personalized` / `digest:personalized:ci` | .env / CI | Send personalized weekly email digest |
+| `push` / `push:ci` | .env / CI | Send web push notifications |
 | `type-check` | — | `tsc --noEmit` |
 
 ## Environment Variables
@@ -86,6 +92,21 @@ All 9 modules done:
 |-----|---------|
 | `RESEND_API_KEY` | Resend transactional email |
 
+### Personalized digest only
+| Var | Purpose |
+|-----|---------|
+| `RESEND_API_KEY` | Resend transactional email |
+| `TELEGRAM_BOT_TOKEN` | Admin monitoring |
+| `TELEGRAM_CHANNEL_ID` | Admin monitoring channel |
+
+### Push notifications only
+| Var | Purpose |
+|-----|---------|
+| `VAPID_PUBLIC_KEY` | VAPID public key (prime256v1 ECDH) |
+| `VAPID_PRIVATE_KEY` | VAPID private key |
+| `TELEGRAM_BOT_TOKEN` | Admin notification on send |
+| `TELEGRAM_CHANNEL_ID` | Admin monitoring channel |
+
 > ⚠️ `TELEGRAM_CHANNEL_ID` (admin) ≠ `TELEGRAM_PUBLIC_CHANNEL_ID` (public). Using the wrong one silently fails.
 > ⚠️ Kit broadcasts are drafts — `POST /v3/broadcasts` creates a draft only. Must be published in the Kit dashboard.
 > ⚠️ GitHub Secrets: always set via `gh secret set` piped from .env to avoid trailing whitespace corruption.
@@ -114,7 +135,7 @@ All 9 modules done:
 | File | Purpose |
 |------|---------|
 | `src/types/opportunity.ts` | `Opportunity` interface + all enum types (shared with platform repo) |
-| `src/config/env.ts` | Zod env validation — `loadExtractionEnv()`, `loadBaseEnv()`, `loadDistributionEnv()`, `loadEmailEnv()`, `loadRemindersEnv()`, `loadEnv()` |
+| `src/config/env.ts` | Zod env validation — `loadExtractionEnv()`, `loadBaseEnv()`, `loadDistributionEnv()`, `loadEmailEnv()`, `loadRemindersEnv()`, `loadPersonalizedDigestEnv()`, `loadPushEnv()`, `loadEnv()` |
 | `src/config/constants.ts` | All magic numbers: rate limits, thresholds, model name, `EMAIL_DIGEST` settings |
 | `src/pipeline/run.ts` | CLI entry point for full scrape + extract + store pipeline |
 | `src/scrapers/base-scraper.ts` | Base class with retry, rate limiting, run logging |
@@ -130,6 +151,15 @@ All 9 modules done:
 | `src/reminders/query.ts` | getUsersWithUpcomingDeadlines(daysAhead) |
 | `src/reminders/sender.ts` | sendReminderEmails() via Resend |
 | `src/reminders/email-template.ts` | formatReminderEmail() — inline-style HTML |
+| `src/distribution/personalized/types.ts` | DigestUser, PersonalizedDigestResult types |
+| `src/distribution/personalized/query.ts` | getUsersForDigest() (user_profiles + Auth admin API), getDigestOpportunities() |
+| `src/distribution/personalized/matcher.ts` | matchOpportunitiesForUser() — OR logic on type/region prefs |
+| `src/distribution/personalized/email-template.ts` | formatPersonalizedDigest() — inline HTML, type badges |
+| `src/distribution/personalized/sender.ts` | sendPersonalizedDigests() via Resend, 1s rate limit |
+| `src/distribution/personalized/run-personalized-digest.ts` | CLI entry for personalized digest |
+| `src/distribution/push/types.ts` | PushSubscription, PushPayload, PushResult types |
+| `src/distribution/push/sender.ts` | getAllPushSubscriptions(), sendPushNotifications() — auto-removes 410 expired |
+| `src/distribution/push/run-push.ts` | CLI entry: queries last 24h opps, builds payload, sends push, Telegram admin notify |
 | `src/lib/telegram.ts` | `sendTelegramMessage()` helper |
 | `src/lib/supabase.ts` | Supabase client singleton |
 | `src/lib/logger.ts` | Structured JSON logger |
@@ -143,6 +173,7 @@ All 9 modules done:
 | `distribution_log` | Tracks what was sent where (`channel`: `telegram` or `email_digest`) |
 | `flagged_listings` | Raw listings that failed AI extraction or validation |
 | `reminder_preferences` | User opt-out for deadline reminder emails |
+| `push_subscriptions` | Web Push subscriptions (endpoint, p256dh, auth, user_id nullable) |
 
 ## Key Constants
 
