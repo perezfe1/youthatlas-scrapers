@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Automated pipeline that scrapes opportunity listings from 15+ websites, processes them with Google Gemini AI, stores in Supabase, and distributes to Telegram + email. Runs daily via GitHub Actions.
+Automated pipeline that scrapes opportunity listings from trusted aggregator websites, processes them with Google Gemini AI, stores in Supabase, and distributes to Telegram + email. Runs daily via GitHub Actions.
 
 ## Project Status
 
@@ -10,15 +10,17 @@ Automated pipeline that scrapes opportunity listings from 15+ websites, processe
 All 9 modules done:
 - 5 scrapers: YouthOp, OFY (OpportunityForYouth), OpDesk, AfterSchool, ScholAds
 - AI extraction via Google Gemini 2.5 Flash (Zod-validated output)
-- Supabase storage with dedup (insert + 23505 silent skip)
-- Daily automated pipeline via GitHub Actions (`ingest.yml`)
+- Supabase storage with dedup (SHA-256 hash → URL dedup → fuzzball fuzzy match, threshold 78)
+- Daily automated pipeline via GitHub Actions (`ingest.yml`, parallel matrix strategy)
 - Telegram health monitoring (scrape_runs + flagged_listings logging)
+- 800+ opportunities indexed
 
 ### Phase 3 — Distribution (COMPLETE)
 | Feature | Details |
 |---------|---------|
 | Telegram auto-posting | `distribute-telegram.yml` triggers after each ingest; posts to @youthatlas1 |
 | Weekly email digest | `weekly-digest.yml` runs Monday 8 AM UTC; Kit v3 broadcast (draft — publish in Kit dashboard) |
+| Deadline reminders | `deadline-reminders.yml` runs daily 10 AM UTC; Resend transactional email |
 
 ## Tech Stack
 
@@ -26,17 +28,20 @@ All 9 modules done:
 - Crawlee (scraping framework)
 - Google Gemini via `@google/generative-ai` — model: `gemini-2.5-flash` (extraction)
 - OpenAI via `openai` — model: `text-embedding-3-small` (embeddings only, 1536 dimensions)
+- Resend — transactional email (deadline reminders)
 - Supabase (shared DB with the platform)
 - Kit (ConvertKit) — email newsletter (API v3 for broadcasts, API v4 for subscriber listing)
-- GitHub Actions (cron scheduling)
+- GitHub Actions (cron scheduling, parallel matrix strategy)
 
 ## GitHub Actions Workflows
 
 | File | Workflow Name | Schedule / Trigger | Purpose |
 |------|-----------|---------|---------|
-| `ingest.yml` | "Daily Ingest Pipeline" | Daily 4 AM UTC | Scrape → extract → store (3 jobs) |
+| `ingest.yml` | "Daily Ingest Pipeline" | Daily 4 AM UTC | Scrape → extract → store (parallel matrix, 5 scrapers) |
 | `distribute-telegram.yml` | "Telegram Distribution" | On completion of "Daily Ingest Pipeline" | Post new listings to @youthatlas1 |
 | `weekly-digest.yml` | "Weekly Email Digest" | Monday 8 AM UTC | Send Kit v3 broadcast draft |
+| `deadline-reminders.yml` | "Deadline Reminders" | Daily 10 AM UTC | Email users with upcoming deadlines |
+| `type-check.yml` | "Type Check" | On push/PR | TypeScript validation |
 
 ## Package Scripts
 
@@ -44,11 +49,10 @@ All 9 modules done:
 |--------|-----|---------|
 | `pipeline` / `pipeline:ci` | .env / CI | Full scrape + extract + store |
 | `pipeline:dry` | .env | Dry-run with limit=3 |
-| `scrape:youthop` … `scrape:scholads` | .env | Run individual scraper |
-| `distribute:telegram` | .env | Post new opps to Telegram (local) |
-| `distribute:telegram:ci` | CI | Post new opps to Telegram (CI) |
-| `digest:email` | .env | Send weekly email digest (local) |
-| `digest:email:ci` | CI | Send weekly email digest (CI) |
+| `scrape:youthop` ... `scrape:scholads` | .env | Run individual scraper |
+| `distribute:telegram` / `distribute:telegram:ci` | .env / CI | Post new opps to Telegram |
+| `digest:email` / `digest:email:ci` | .env / CI | Send weekly email digest |
+| `reminders` / `reminders:ci` | .env / CI | Send deadline reminder emails |
 | `type-check` | — | `tsc --noEmit` |
 
 ## Environment Variables
@@ -77,8 +81,14 @@ All 9 modules done:
 | `GOOGLE_AI_API_KEY` | Google Gemini for AI extraction (`gemini-2.5-flash`) |
 | `OPENAI_API_KEY` | OpenAI for embeddings (`text-embedding-3-small`) |
 
+### Deadline reminders only
+| Var | Purpose |
+|-----|---------|
+| `RESEND_API_KEY` | Resend transactional email |
+
 > ⚠️ `TELEGRAM_CHANNEL_ID` (admin) ≠ `TELEGRAM_PUBLIC_CHANNEL_ID` (public). Using the wrong one silently fails.
 > ⚠️ Kit broadcasts are drafts — `POST /v3/broadcasts` creates a draft only. Must be published in the Kit dashboard.
+> ⚠️ GitHub Secrets: always set via `gh secret set` piped from .env to avoid trailing whitespace corruption.
 
 ## Architecture Rules — FOLLOW THESE ALWAYS
 
@@ -90,6 +100,8 @@ All 9 modules done:
 6. **One scraper per file.** One processing concern per file. One distribution channel per file.
 7. **Record every pipeline run** in the `scrape_runs` table. Log failures to `flagged_listings`.
 8. **Dedup via insert + 23505.** Use `insert` (not `upsert`) on `distribution_log`; silently skip on unique constraint violations.
+9. **Never select('*') on opportunities table.** Always use explicit column lists. The `embedding` column is 6KB/row and kills egress. The `fts` column is not selectable via PostgREST.
+10. **Distribution dedup in JS, not SQL.** Use a Set for already-posted IDs instead of SQL NOT IN clauses — large UUID lists exceed HTTP URL length limits on GitHub Actions.
 
 ## No-Touch Files
 
@@ -102,7 +114,7 @@ All 9 modules done:
 | File | Purpose |
 |------|---------|
 | `src/types/opportunity.ts` | `Opportunity` interface + all enum types (shared with platform repo) |
-| `src/config/env.ts` | Zod env validation — `loadEnv()`, `loadEmailEnv()` |
+| `src/config/env.ts` | Zod env validation — `loadExtractionEnv()`, `loadBaseEnv()`, `loadDistributionEnv()`, `loadEmailEnv()`, `loadRemindersEnv()`, `loadEnv()` |
 | `src/config/constants.ts` | All magic numbers: rate limits, thresholds, model name, `EMAIL_DIGEST` settings |
 | `src/pipeline/run.ts` | CLI entry point for full scrape + extract + store pipeline |
 | `src/scrapers/base-scraper.ts` | Base class with retry, rate limiting, run logging |
@@ -110,10 +122,14 @@ All 9 modules done:
 | `src/lib/gemini-client.ts` | Gemini client singleton (`getGeminiClient()`) |
 | `src/processing/store.ts` | Supabase upsert with dedup |
 | `src/distribution/run-telegram.ts` | CLI entry: post new opps to Telegram |
-| `src/distribution/telegram-distributor.ts` | Core logic: query unsent opps, post, record in `distribution_log` |
-| `src/distribution/run-email-digest.ts` | CLI entry: query opps → format → send Kit broadcast → record log |
+| `src/distribution/telegram-distributor.ts` | Core logic: query unsent opps (explicit columns, JS-side dedup), post, record in `distribution_log` |
+| `src/distribution/run-email-digest.ts` | CLI entry: query opps (explicit columns) → format → send Kit broadcast → record log |
 | `src/distribution/kit-client.ts` | Kit API: `getSubscribers()` (v4) + `sendBroadcast()` (v3) |
 | `src/distribution/email-formatter.ts` | Table-based HTML email builder (inline styles, `{{ unsubscribe_url }}`) |
+| `src/reminders/run-reminders.ts` | CLI entry: send deadline reminder emails via Resend |
+| `src/reminders/query.ts` | getUsersWithUpcomingDeadlines(daysAhead) |
+| `src/reminders/sender.ts` | sendReminderEmails() via Resend |
+| `src/reminders/email-template.ts` | formatReminderEmail() — inline-style HTML |
 | `src/lib/telegram.ts` | `sendTelegramMessage()` helper |
 | `src/lib/supabase.ts` | Supabase client singleton |
 | `src/lib/logger.ts` | Structured JSON logger |
@@ -126,6 +142,7 @@ All 9 modules done:
 | `scrape_runs` | One row per pipeline run (source, counts, errors) |
 | `distribution_log` | Tracks what was sent where (`channel`: `telegram` or `email_digest`) |
 | `flagged_listings` | Raw listings that failed AI extraction or validation |
+| `reminder_preferences` | User opt-out for deadline reminder emails |
 
 ## Key Constants
 
