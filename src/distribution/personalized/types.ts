@@ -5,6 +5,8 @@ export type DigestUser = {
   regions_of_interest: string[];
   types_of_interest: string[];
   reminders_enabled: boolean;
+  /** True if user has bookmarked at least one opportunity — enables semantic matching */
+  has_save_history: boolean;
 };
 
 export type PersonalizedDigestResult = {

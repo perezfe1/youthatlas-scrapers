@@ -84,6 +84,7 @@ export async function getUsersForDigest(): Promise<Result<DigestUser[]>> {
         regions_of_interest: (profile.regions_of_interest as string[]) ?? [],
         types_of_interest: (profile.types_of_interest as string[]) ?? [],
         reminders_enabled: true,
+        has_save_history: false, // will be set in step 5
       });
     }
 
@@ -124,11 +125,35 @@ export async function getUsersForDigest(): Promise<Result<DigestUser[]>> {
           if (!inferred) continue;
           if (inferred.types.size > 0) user.types_of_interest = [...inferred.types];
           if (inferred.regions.size > 0) user.regions_of_interest = [...inferred.regions];
+          user.has_save_history = true;
         }
 
         log.info('Inferred preferences from saves', { usersEnriched: saveMap.size });
       }
     }
+
+    // Step 6: Mark users WITH explicit prefs who also have save history
+    const usersWithExplicitPrefs = users.filter(
+      u => !u.has_save_history && (u.types_of_interest.length > 0 || u.regions_of_interest.length > 0),
+    );
+    if (usersWithExplicitPrefs.length > 0) {
+      const { data: saveCounts } = await supabase
+        .from('saved_opportunities')
+        .select('user_id')
+        .in('user_id', usersWithExplicitPrefs.map(u => u.id));
+      if (saveCounts) {
+        const idsWithSaves = new Set(
+          (saveCounts as Array<{ user_id: string }>).map(s => s.user_id),
+        );
+        for (const user of usersWithExplicitPrefs) {
+          if (idsWithSaves.has(user.id)) user.has_save_history = true;
+        }
+      }
+    }
+
+    log.info('Users with save history', {
+      count: users.filter(u => u.has_save_history).length,
+    });
 
     return { data: users, error: null };
   } catch (err) {
@@ -212,6 +237,91 @@ export async function getClosingSoonOpportunities(
     const opportunities = (data ?? []) as unknown as Opportunity[];
     log.info('Fetched closing-soon opportunities', { count: opportunities.length, days });
     return { data: opportunities, error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: { code: 'UNEXPECTED', message: err instanceof Error ? err.message : String(err) },
+    };
+  }
+}
+
+// ── Embeddings ────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch embeddings for a specific set of opportunity IDs (the digest pool).
+ * Returns a Map<oppId, number[]> for fast lookup.
+ * Embeddings come back as strings from pgvector — parsed here.
+ */
+export async function getPoolEmbeddings(
+  oppIds: string[],
+): Promise<Result<Map<string, number[]>>> {
+  if (oppIds.length === 0) return { data: new Map(), error: null };
+  try {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('opportunities')
+      .select('id, embedding')
+      .in('id', oppIds);
+
+    if (error) {
+      return { data: null, error: { code: 'DB_ERROR', message: `Failed to fetch pool embeddings: ${error.message}` } };
+    }
+
+    const map = new Map<string, number[]>();
+    for (const row of (data ?? []) as unknown as Array<{ id: string; embedding: string | number[] | null }>) {
+      if (!row.embedding) continue;
+      const vec = typeof row.embedding === 'string'
+        ? JSON.parse(row.embedding) as number[]
+        : row.embedding;
+      map.set(row.id, vec);
+    }
+
+    log.info('Fetched pool embeddings', { requested: oppIds.length, found: map.size });
+    return { data: map, error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: { code: 'UNEXPECTED', message: err instanceof Error ? err.message : String(err) },
+    };
+  }
+}
+
+/**
+ * Fetch embeddings of all saved opportunities for a set of user IDs.
+ * Returns a Map<userId, number[][]> — each user maps to their array of saved embeddings.
+ */
+export async function getUserSaveEmbeddings(
+  userIds: string[],
+): Promise<Result<Map<string, number[][]>>> {
+  if (userIds.length === 0) return { data: new Map(), error: null };
+  try {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('saved_opportunities')
+      .select('user_id, opportunities(embedding)')
+      .in('user_id', userIds);
+
+    if (error) {
+      return { data: null, error: { code: 'DB_ERROR', message: `Failed to fetch save embeddings: ${error.message}` } };
+    }
+
+    const map = new Map<string, number[][]>();
+    for (const row of (data ?? []) as unknown as Array<{ user_id: string; opportunities: { embedding: string | number[] | null } | null }>) {
+      if (!row.opportunities?.embedding) continue;
+      const vec = typeof row.opportunities.embedding === 'string'
+        ? JSON.parse(row.opportunities.embedding) as number[]
+        : row.opportunities.embedding;
+      if (!map.has(row.user_id)) map.set(row.user_id, []);
+      map.get(row.user_id)!.push(vec);
+    }
+
+    log.info('Fetched user save embeddings', {
+      usersRequested: userIds.length,
+      usersWithEmbeddings: map.size,
+    });
+    return { data: map, error: null };
   } catch (err) {
     return {
       data: null,
