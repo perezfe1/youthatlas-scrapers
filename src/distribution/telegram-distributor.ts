@@ -56,28 +56,36 @@ export async function getUnpostedOpportunities(): Promise<Result<Opportunity[]>>
 
     log.info('Already-posted IDs found in distribution_log', { count: postedIds.length });
 
-    // Step 2: query unposted active opportunities within the lookback window
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let q: any = supabase
+    // Step 2: query active opportunities within the lookback window, then filter in JS.
+    // Previous approach used .not('id','in',`(${399 UUIDs})`) which created a ~15KB URL
+    // and caused `fetch failed` on GitHub Actions runners due to URL length limits.
+    // Only select columns needed for Telegram formatting — never select embedding or fts.
+    const TELEGRAM_COLUMNS = [
+      'id', 'title', 'slug', 'type', 'summary', 'organization',
+      'regions', 'deadline', 'is_rolling', 'is_fully_funded',
+      'completeness_score', 'created_at', 'status',
+    ].join(',');
+
+    const { data: candidates, error } = await supabase
       .from('opportunities')
-      .select('*')
+      .select(TELEGRAM_COLUMNS)
       .eq('status', 'active')
       .gte('created_at', lookbackDate)
       .or(`deadline.is.null,deadline.gte.${today}`)
       .order('completeness_score', { ascending: false })
-      .limit(DISTRIBUTION.MAX_PER_RUN);
-
-    if (postedIds.length > 0) {
-      q = q.not('id', 'in', `(${postedIds.join(',')})`);
-    }
-
-    const { data, error } = await q;
+      .limit(DISTRIBUTION.MAX_PER_RUN + postedIds.length);
 
     if (error) {
       return dbError('DB_ERROR', `Failed to query opportunities: ${error.message}`);
     }
 
-    return { data: (data ?? []) as Opportunity[], error: null };
+    // Filter out already-posted in JS instead of the URL query string
+    const postedSet = new Set(postedIds);
+    const data = (candidates ?? []).filter(
+      (opp: { id: string }) => !postedSet.has(opp.id),
+    ).slice(0, DISTRIBUTION.MAX_PER_RUN);
+
+    return { data: data as Opportunity[], error: null };
   } catch (err) {
     return dbError('UNEXPECTED', err instanceof Error ? err.message : String(err));
   }

@@ -19,9 +19,17 @@ async function getWeeklyOpportunities(): Promise<Opportunity[]> {
     Date.now() - EMAIL_DIGEST.LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
   ).toISOString();
 
+  // Only select columns needed for email formatting — never select embedding or fts
+  const EMAIL_COLUMNS = [
+    'id', 'title', 'slug', 'type', 'summary', 'organization',
+    'regions', 'deadline', 'is_rolling', 'is_fully_funded',
+    'completeness_score', 'created_at', 'status',
+    'application_url', 'source_url',
+  ].join(',');
+
   const { data, error } = await supabase
     .from('opportunities')
-    .select('*')
+    .select(EMAIL_COLUMNS)
     .eq('status', 'active')
     .gte('created_at', lookbackDate)
     .or(`deadline.is.null,deadline.gte.${today}`)
