@@ -22,6 +22,7 @@ function sleep(ms: number): Promise<void> {
 export async function sendPersonalizedDigests(
   users: DigestUser[],
   opportunities: Opportunity[],
+  closingSoonOpps: Opportunity[] = [],
 ): Promise<Result<PersonalizedDigestResult>> {
   const resendApiKey = process.env.RESEND_API_KEY;
   if (!resendApiKey) {
@@ -42,7 +43,7 @@ export async function sendPersonalizedDigests(
     }
 
     // Format the email
-    const { subject, html } = formatPersonalizedDigest(user, matched, isPersonalized);
+    const { subject, html } = formatPersonalizedDigest(user, matched, isPersonalized, closingSoonOpps);
 
     // Send via Resend
     const { error } = await resend.emails.send({

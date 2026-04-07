@@ -94,6 +94,42 @@ export async function getUsersForDigest(): Promise<Result<DigestUser[]>> {
       eligible: users.length,
     });
 
+    // Step 5: Enrich users with no explicit prefs — infer from their save history
+    const usersWithNoPrefs = users.filter(
+      u => u.types_of_interest.length === 0 && u.regions_of_interest.length === 0,
+    );
+
+    if (usersWithNoPrefs.length > 0) {
+      const noPrefsIds = usersWithNoPrefs.map(u => u.id);
+
+      const { data: saves, error: savesError } = await supabase
+        .from('saved_opportunities')
+        .select('user_id, opportunities(type, regions)')
+        .in('user_id', noPrefsIds);
+
+      if (!savesError && saves) {
+        const saveMap = new Map<string, { types: Set<string>; regions: Set<string> }>();
+        for (const save of saves as unknown as Array<{ user_id: string; opportunities: { type: string; regions: string[] } | null }>) {
+          if (!save.opportunities) continue;
+          if (!saveMap.has(save.user_id)) {
+            saveMap.set(save.user_id, { types: new Set(), regions: new Set() });
+          }
+          const entry = saveMap.get(save.user_id)!;
+          entry.types.add(save.opportunities.type);
+          for (const r of save.opportunities.regions) entry.regions.add(r);
+        }
+
+        for (const user of usersWithNoPrefs) {
+          const inferred = saveMap.get(user.id);
+          if (!inferred) continue;
+          if (inferred.types.size > 0) user.types_of_interest = [...inferred.types];
+          if (inferred.regions.size > 0) user.regions_of_interest = [...inferred.regions];
+        }
+
+        log.info('Inferred preferences from saves', { usersEnriched: saveMap.size });
+      }
+    }
+
     return { data: users, error: null };
   } catch (err) {
     return {
@@ -135,6 +171,46 @@ export async function getDigestOpportunities(
     const opportunities = (data ?? []) as unknown as Opportunity[];
     log.info('Fetched digest opportunities', { count: opportunities.length, lookbackDays });
 
+    return { data: opportunities, error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: { code: 'UNEXPECTED', message: err instanceof Error ? err.message : String(err) },
+    };
+  }
+}
+
+// ── Closing Soon ──────────────────────────────────────────────────────────────
+
+/**
+ * Fetch active opportunities with a deadline within the next `days` days.
+ * Ordered by deadline ASC (most urgent first).
+ */
+export async function getClosingSoonOpportunities(
+  days: number = 7,
+): Promise<Result<Opportunity[]>> {
+  try {
+    const supabase = getSupabaseClient();
+    const today = new Date().toISOString().split('T')[0]!;
+    const cutoff = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0]!;
+
+    const { data, error } = await supabase
+      .from('opportunities')
+      .select(DIGEST_COLUMNS)
+      .eq('status', 'active')
+      .gte('deadline', today)
+      .lte('deadline', cutoff)
+      .order('deadline', { ascending: true })
+      .limit(30);
+
+    if (error) {
+      return { data: null, error: { code: 'DB_ERROR', message: `Failed to query closing-soon opportunities: ${error.message}` } };
+    }
+
+    const opportunities = (data ?? []) as unknown as Opportunity[];
+    log.info('Fetched closing-soon opportunities', { count: opportunities.length, days });
     return { data: opportunities, error: null };
   } catch (err) {
     return {

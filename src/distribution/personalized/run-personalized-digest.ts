@@ -1,7 +1,7 @@
 import { loadPersonalizedDigestEnv } from '@/config/env.js';
 import { createLogger } from '@/lib/logger.js';
 import { sendTelegramMessage } from '@/lib/telegram.js';
-import { getUsersForDigest, getDigestOpportunities } from './query.js';
+import { getUsersForDigest, getDigestOpportunities, getClosingSoonOpportunities } from './query.js';
 import { sendPersonalizedDigests } from './sender.js';
 
 const log = createLogger('personalized-digest');
@@ -68,9 +68,21 @@ async function main(): Promise<void> {
 
   log.info('Opportunities for digest', { count: opportunities.length });
 
+  // ── Step 2b: Fetch closing-soon opportunities (non-fatal) ─────────────────
+
+  const closingSoonResult = await getClosingSoonOpportunities(7);
+  const closingSoonOpps = closingSoonResult.error ? [] : closingSoonResult.data;
+  if (closingSoonResult.error) {
+    log.warn('Failed to fetch closing-soon opportunities, proceeding without section', {
+      error: closingSoonResult.error.message,
+    });
+  } else {
+    log.info('Closing-soon opportunities', { count: closingSoonOpps.length });
+  }
+
   // ── Step 3: Send personalized emails ──────────────────────────────────────
 
-  const sendResult = await sendPersonalizedDigests(users, opportunities);
+  const sendResult = await sendPersonalizedDigests(users, opportunities, closingSoonOpps);
 
   if (sendResult.error) {
     log.error('Failed to send personalized digests', {
