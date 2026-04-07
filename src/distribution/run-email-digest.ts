@@ -40,7 +40,7 @@ async function getWeeklyOpportunities(): Promise<Opportunity[]> {
     throw new Error(`Failed to query opportunities: ${error.message}`);
   }
 
-  return (data ?? []) as Opportunity[];
+  return (data ?? []) as unknown as Opportunity[];
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────

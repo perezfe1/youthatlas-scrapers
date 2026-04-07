@@ -81,11 +81,12 @@ export async function getUnpostedOpportunities(): Promise<Result<Opportunity[]>>
 
     // Filter out already-posted in JS instead of the URL query string
     const postedSet = new Set(postedIds);
-    const data = (candidates ?? []).filter(
-      (opp: { id: string }) => !postedSet.has(opp.id),
-    ).slice(0, DISTRIBUTION.MAX_PER_RUN);
+    const rows = (candidates ?? []) as unknown as Opportunity[];
+    const data = rows
+      .filter((opp) => !postedSet.has(opp.id))
+      .slice(0, DISTRIBUTION.MAX_PER_RUN);
 
-    return { data: data as Opportunity[], error: null };
+    return { data, error: null };
   } catch (err) {
     return dbError('UNEXPECTED', err instanceof Error ? err.message : String(err));
   }
