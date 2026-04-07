@@ -1,3 +1,5 @@
+import type { Opportunity } from '@/types/opportunity.js';
+
 export type DigestUser = {
   id: string;
   email: string;
@@ -14,4 +16,9 @@ export type PersonalizedDigestResult = {
   skipped: number;
   failed: number;
   generic: number; // users with no prefs who got generic digest
+};
+
+export type TrendingOpportunity = {
+  opportunity: Opportunity;
+  save_count: number;
 };

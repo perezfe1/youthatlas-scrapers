@@ -1,7 +1,7 @@
 import { loadPersonalizedDigestEnv } from '@/config/env.js';
 import { createLogger } from '@/lib/logger.js';
 import { sendTelegramMessage } from '@/lib/telegram.js';
-import { getUsersForDigest, getDigestOpportunities, getClosingSoonOpportunities } from './query.js';
+import { getUsersForDigest, getDigestOpportunities, getClosingSoonOpportunities, getTrendingOpportunities } from './query.js';
 import { sendPersonalizedDigests } from './sender.js';
 
 const log = createLogger('personalized-digest');
@@ -80,9 +80,21 @@ async function main(): Promise<void> {
     log.info('Closing-soon opportunities', { count: closingSoonOpps.length });
   }
 
+  // ── Step 2c: Fetch trending opportunities (non-fatal) ────────────────────
+
+  const trendingResult = await getTrendingOpportunities(7, 2, 2);
+  const trendingOpps = trendingResult.error ? [] : trendingResult.data;
+  if (trendingResult.error) {
+    log.warn('Failed to fetch trending opportunities, proceeding without section', {
+      error: trendingResult.error.message,
+    });
+  } else {
+    log.info('Trending opportunities', { count: trendingOpps.length });
+  }
+
   // ── Step 3: Send personalized emails ──────────────────────────────────────
 
-  const sendResult = await sendPersonalizedDigests(users, opportunities, closingSoonOpps);
+  const sendResult = await sendPersonalizedDigests(users, opportunities, closingSoonOpps, trendingOpps);
 
   if (sendResult.error) {
     log.error('Failed to send personalized digests', {
@@ -107,6 +119,7 @@ async function main(): Promise<void> {
     `✅ Sent: ${sent} (${sent - generic} personalized, ${generic} generic)`,
     `❌ Failed: ${failed}`,
     `⏭️ Skipped: ${skipped}`,
+    `🔥 Trending section: ${trendingOpps.length} opp${trendingOpps.length !== 1 ? 's' : ''}`,
   ].join('\n');
 
   const notifyResult = await sendTelegramMessage(adminMsg);

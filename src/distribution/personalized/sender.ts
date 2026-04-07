@@ -6,7 +6,7 @@ import { formatPersonalizedDigest } from './email-template.js';
 import { semanticRankOpportunities, averageVectors, blendMatches } from './semantic-matcher.js';
 import { getPoolEmbeddings, getUserSaveEmbeddings } from './query.js';
 import type { Opportunity, Result } from '@/types/opportunity.js';
-import type { DigestUser, PersonalizedDigestResult } from './types.js';
+import type { DigestUser, PersonalizedDigestResult, TrendingOpportunity } from './types.js';
 
 const log = createLogger('personalized-digest:sender');
 
@@ -29,6 +29,7 @@ export async function sendPersonalizedDigests(
   users: DigestUser[],
   opportunities: Opportunity[],
   closingSoonOpps: Opportunity[] = [],
+  trendingOpps: TrendingOpportunity[] = [],
 ): Promise<Result<PersonalizedDigestResult>> {
   const resendApiKey = process.env.RESEND_API_KEY;
   if (!resendApiKey) {
@@ -116,7 +117,7 @@ export async function sendPersonalizedDigests(
     }
 
     // Format and send
-    const { subject, html } = formatPersonalizedDigest(user, finalMatches, isPersonalized, closingSoonOpps);
+    const { subject, html } = formatPersonalizedDigest(user, finalMatches, isPersonalized, closingSoonOpps, trendingOpps);
 
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,

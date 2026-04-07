@@ -1,7 +1,7 @@
 import { createLogger } from '@/lib/logger.js';
 import { getSupabaseClient } from '@/lib/supabase.js';
 import type { Opportunity, Result } from '@/types/opportunity.js';
-import type { DigestUser } from './types.js';
+import type { DigestUser, TrendingOpportunity } from './types.js';
 
 const log = createLogger('personalized-digest:query');
 
@@ -322,6 +322,84 @@ export async function getUserSaveEmbeddings(
       usersWithEmbeddings: map.size,
     });
     return { data: map, error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: { code: 'UNEXPECTED', message: err instanceof Error ? err.message : String(err) },
+    };
+  }
+}
+
+// ── Trending ──────────────────────────────────────────────────────────────────
+
+/**
+ * Find the most-saved opportunities in the last `lookbackDays` days.
+ * Counts saves in JS (no RPC needed). Only includes opps with >= minSaves.
+ */
+export async function getTrendingOpportunities(
+  lookbackDays: number = 7,
+  minSaves: number = 2,
+  limit: number = 3,
+): Promise<Result<TrendingOpportunity[]>> {
+  try {
+    const supabase = getSupabaseClient();
+    const lookbackDate = new Date(
+      Date.now() - lookbackDays * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    // Step 1: Fetch save events in the window
+    const { data: saves, error: savesError } = await supabase
+      .from('saved_opportunities')
+      .select('opportunity_id')
+      .gte('created_at', lookbackDate)
+      .limit(2000);
+
+    if (savesError) {
+      return { data: null, error: { code: 'DB_ERROR', message: `Failed to query saves: ${savesError.message}` } };
+    }
+
+    // Step 2: Count in JS
+    const counts = new Map<string, number>();
+    for (const row of (saves ?? []) as Array<{ opportunity_id: string }>) {
+      counts.set(row.opportunity_id, (counts.get(row.opportunity_id) ?? 0) + 1);
+    }
+
+    const topIds = [...counts.entries()]
+      .filter(([, count]) => count >= minSaves)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit);
+
+    if (topIds.length === 0) {
+      log.info('No trending opportunities this week (not enough saves)');
+      return { data: [], error: null };
+    }
+
+    // Step 3: Fetch opportunity details for the top IDs
+    const today = new Date().toISOString().split('T')[0]!;
+    const { data: opps, error: oppsError } = await supabase
+      .from('opportunities')
+      .select(DIGEST_COLUMNS)
+      .in('id', topIds.map(([id]) => id))
+      .eq('status', 'active')
+      .or(`deadline.is.null,deadline.gte.${today}`);
+
+    if (oppsError) {
+      return { data: null, error: { code: 'DB_ERROR', message: `Failed to fetch trending opps: ${oppsError.message}` } };
+    }
+
+    const oppsById = new Map(
+      ((opps ?? []) as unknown as Opportunity[]).map(o => [o.id, o]),
+    );
+
+    // Preserve save-count order
+    const trending: TrendingOpportunity[] = [];
+    for (const [id, count] of topIds) {
+      const opp = oppsById.get(id);
+      if (opp) trending.push({ opportunity: opp, save_count: count });
+    }
+
+    log.info('Trending opportunities', { count: trending.length });
+    return { data: trending, error: null };
   } catch (err) {
     return {
       data: null,

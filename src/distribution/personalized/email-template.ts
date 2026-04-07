@@ -1,5 +1,5 @@
 import type { Opportunity } from '@/types/opportunity.js';
-import type { DigestUser } from './types.js';
+import type { DigestUser, TrendingOpportunity } from './types.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -105,6 +105,45 @@ function buildClosingSoonSection(opps: Opportunity[]): string {
   `.trim();
 }
 
+// ── Trending section ─────────────────────────────────────────────────────────
+
+function buildTrendingSection(trending: TrendingOpportunity[]): string {
+  if (trending.length === 0) return '';
+  const cards = trending.map(({ opportunity: opp, save_count }) => {
+    const detailUrl = `https://youthatlas.com/opportunities/${htmlEscape(opp.slug)}?${UTM}`;
+    const saveBadge = `<span style="display:inline-block;background:#FEF3C7;color:#92400E;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;margin-bottom:8px;">🔥 ${save_count} saves this week</span>`;
+    const orgLine = opp.organization
+      ? `<p style="margin:0 0 6px;color:#6B7280;font-size:13px;">${htmlEscape(opp.organization)}</p>`
+      : '';
+    const deadlineLine = opp.deadline
+      ? `<p style="margin:0 0 8px;color:#9CA3AF;font-size:12px;">Deadline: ${formatDate(opp.deadline)}</p>`
+      : '';
+    return `
+      <div style="border:1px solid #FDE68A;border-radius:10px;padding:18px;margin-bottom:14px;background-color:#FFFBF5;">
+        ${saveBadge}
+        <h2 style="margin:4px 0 4px;font-size:15px;font-weight:700;line-height:1.4;">
+          <a href="${detailUrl}" style="color:#111827;text-decoration:none;">${htmlEscape(opp.title)}</a>
+        </h2>
+        ${orgLine}
+        ${deadlineLine}
+        <a href="${detailUrl}"
+           style="display:inline-block;background-color:#D97706;color:#FFF;font-size:13px;font-weight:600;padding:8px 16px;border-radius:6px;text-decoration:none;">
+          View &amp; Apply &#8594;
+        </a>
+      </div>`.trim();
+  }).join('\n');
+
+  return `
+    <div style="margin-bottom:20px;">
+      <h3 style="margin:0 0 12px;font-size:14px;font-weight:700;color:#92400E;letter-spacing:0.3px;">
+        🔥 TRENDING THIS WEEK
+      </h3>
+      ${cards}
+    </div>
+    <hr style="border:none;border-top:1px solid #E5E7EB;margin:0 0 20px;" />
+  `.trim();
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function formatPersonalizedDigest(
@@ -112,6 +151,7 @@ export function formatPersonalizedDigest(
   opportunities: Opportunity[],
   isPersonalized: boolean,
   closingSoonOpps: Opportunity[] = [],
+  trendingOpps: TrendingOpportunity[] = [],
 ): { subject: string; html: string } {
 
   // ── Subject line ───────────────────────────────────────────────────────────
@@ -157,6 +197,7 @@ export function formatPersonalizedDigest(
     return false;
   });
   const closingSoonSection = buildClosingSoonSection(matchedClosingSoon);
+  const trendingSection = buildTrendingSection(trendingOpps);
 
   // ── Email body ────────────────────────────────────────────────────────────
   const greeting = user.display_name
@@ -201,6 +242,7 @@ export function formatPersonalizedDigest(
               <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">${introText}</p>
               ${prefsNote}
               ${closingSoonSection}
+              ${trendingSection}
               ${cards}
               <div style="text-align:center;margin-top:20px;">
                 <a href="https://youthatlas.com/opportunities?${UTM}"
