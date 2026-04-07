@@ -29,6 +29,8 @@
     "digest:personalized:ci": "tsx src/distribution/personalized/run-personalized-digest.ts",
     "push": "tsx --env-file .env src/distribution/push/run-push.ts",
     "push:ci": "tsx src/distribution/push/run-push.ts",
+    "onboarding:email": "tsx --env-file .env src/distribution/onboarding/run-onboarding-email.ts",
+    "onboarding:email:ci": "tsx src/distribution/onboarding/run-onboarding-email.ts",
     "backfill:embeddings": "tsx --env-file .env src/processing/backfill-embeddings.ts",
     "migrate:combined": "cat supabase/migrations/*.sql",
     "type-check": "tsc --noEmit",
