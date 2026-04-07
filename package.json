@@ -27,6 +27,8 @@
     "reminders:ci": "tsx src/reminders/run-reminders.ts",
     "digest:personalized": "tsx --env-file .env src/distribution/personalized/run-personalized-digest.ts",
     "digest:personalized:ci": "tsx src/distribution/personalized/run-personalized-digest.ts",
+    "push": "tsx --env-file .env src/distribution/push/run-push.ts",
+    "push:ci": "tsx src/distribution/push/run-push.ts",
     "backfill:embeddings": "tsx --env-file .env src/processing/backfill-embeddings.ts",
     "migrate:combined": "cat supabase/migrations/*.sql",
     "type-check": "tsc --noEmit",
@@ -40,10 +42,12 @@
     "openai": "^6.27.0",
     "playwright": "1.58.2",
     "resend": "^6.9.3",
+    "web-push": "^3.6.7",
     "zod": "3.24.1"
   },
   "devDependencies": {
     "@types/node": "22.10.2",
+    "@types/web-push": "^3.6.4",
     "tsx": "4.21.0",
     "typescript": "5.6.3"
   }

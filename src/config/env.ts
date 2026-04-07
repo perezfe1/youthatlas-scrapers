@@ -156,6 +156,32 @@ export function loadPersonalizedDigestEnv(): PersonalizedDigestEnv {
   return result.data;
 }
 
+// Push notifications schema — Supabase + VAPID + Telegram admin
+const pushEnvSchema = baseEnvSchema.extend({
+  VAPID_PUBLIC_KEY: z.string().min(1),
+  VAPID_PRIVATE_KEY: z.string().min(1),
+  TELEGRAM_BOT_TOKEN: z.string().min(1),
+  TELEGRAM_CHANNEL_ID: z.string().min(1),
+});
+
+export type PushEnv = z.infer<typeof pushEnvSchema>;
+
+/** Load and validate env vars needed for push notifications. */
+export function loadPushEnv(): PushEnv {
+  const result = pushEnvSchema.safeParse(process.env);
+
+  if (!result.success) {
+    const missing = result.error.issues
+      .map((i) => `  ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    console.error(`\n❌ Environment validation failed:\n${missing}\n`);
+    console.error('Copy .env.example to .env and fill in your credentials.\n');
+    process.exit(1);
+  }
+
+  return result.data;
+}
+
 /** Load and validate ALL env vars. Use this in orchestrator and distribution modules. */
 export function loadEnv(): FullEnv {
   const result = fullEnvSchema.safeParse(process.env);
