@@ -1,3 +1,7 @@
+// NOTE: This generic digest is being replaced by the personalized digest
+// in src/distribution/personalized/run-personalized-digest.ts.
+// Keep both running until the personalized version is verified in production.
+// Then disable weekly-digest.yml and remove this file.
 import { loadEmailEnv } from '@/config/env.js';
 import { EMAIL_DIGEST } from '@/config/constants.js';
 import { createLogger } from '@/lib/logger.js';

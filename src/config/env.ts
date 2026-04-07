@@ -131,6 +131,31 @@ export function loadRemindersEnv(): RemindersEnv {
   return result.data;
 }
 
+// Personalized digest schema — Supabase + Resend + Telegram admin
+const personalizedDigestEnvSchema = baseEnvSchema.extend({
+  RESEND_API_KEY: z.string().min(1),
+  TELEGRAM_BOT_TOKEN: z.string().min(1),
+  TELEGRAM_CHANNEL_ID: z.string().min(1),
+});
+
+export type PersonalizedDigestEnv = z.infer<typeof personalizedDigestEnvSchema>;
+
+/** Load and validate env vars needed for the personalized weekly digest. */
+export function loadPersonalizedDigestEnv(): PersonalizedDigestEnv {
+  const result = personalizedDigestEnvSchema.safeParse(process.env);
+
+  if (!result.success) {
+    const missing = result.error.issues
+      .map((i) => `  ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    console.error(`\n❌ Environment validation failed:\n${missing}\n`);
+    console.error('Copy .env.example to .env and fill in your credentials.\n');
+    process.exit(1);
+  }
+
+  return result.data;
+}
+
 /** Load and validate ALL env vars. Use this in orchestrator and distribution modules. */
 export function loadEnv(): FullEnv {
   const result = fullEnvSchema.safeParse(process.env);
