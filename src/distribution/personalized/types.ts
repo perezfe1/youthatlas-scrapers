@@ -9,6 +9,8 @@ export type DigestUser = {
   reminders_enabled: boolean;
   /** True if user has bookmarked at least one opportunity — enables semantic matching */
   has_save_history: boolean;
+  digest_frequency: 'weekly' | 'biweekly';
+  digest_keywords: string[];
 };
 
 export type PersonalizedDigestResult = {

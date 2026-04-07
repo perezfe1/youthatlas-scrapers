@@ -41,6 +41,29 @@ async function main(): Promise<void> {
 
   log.info('Eligible users found', { count: users.length });
 
+  // ── Step 1b: Filter biweekly users (only send on odd ISO-week numbers) ────
+  // Week number mod 2 gives a stable every-other-week gate regardless of run time.
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const weekNumber = Math.ceil(((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7);
+  const isDigestWeek = weekNumber % 2 === 1; // odd weeks = send biweekly
+
+  const eligibleUsers = users.filter(u =>
+    u.digest_frequency === 'weekly' ||
+    (u.digest_frequency === 'biweekly' && isDigestWeek),
+  );
+
+  const biweeklySkipped = users.length - eligibleUsers.length;
+  if (biweeklySkipped > 0) {
+    log.info('Biweekly users skipped this week', { count: biweeklySkipped });
+  }
+
+  if (eligibleUsers.length === 0) {
+    log.info('No users to send to after frequency filter');
+    await sendTelegramMessage(`📧 <b>Personalized Digest</b>\n\nAll users on biweekly schedule — skipping this week.`);
+    process.exit(0);
+  }
+
   // ── Step 2: Query recent opportunities ────────────────────────────────────
 
   const oppsResult = await getDigestOpportunities(7);
@@ -94,7 +117,7 @@ async function main(): Promise<void> {
 
   // ── Step 3: Send personalized emails ──────────────────────────────────────
 
-  const sendResult = await sendPersonalizedDigests(users, opportunities, closingSoonOpps, trendingOpps);
+  const sendResult = await sendPersonalizedDigests(eligibleUsers, opportunities, closingSoonOpps, trendingOpps);
 
   if (sendResult.error) {
     log.error('Failed to send personalized digests', {
@@ -114,7 +137,7 @@ async function main(): Promise<void> {
   const adminMsg = [
     `📧 <b>Personalized Weekly Digest Sent</b>`,
     ``,
-    `👥 Eligible users: ${users.length}`,
+    `👥 Eligible users: ${eligibleUsers.length} (${biweeklySkipped} biweekly skipped)`,
     `📊 Opportunities pool: ${opportunities.length}`,
     `✅ Sent: ${sent} (${sent - generic} personalized, ${generic} generic)`,
     `❌ Failed: ${failed}`,

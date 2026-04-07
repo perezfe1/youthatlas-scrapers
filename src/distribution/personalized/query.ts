@@ -26,7 +26,7 @@ export async function getUsersForDigest(): Promise<Result<DigestUser[]>> {
     // Step 1: Get all user profiles
     const { data: profiles, error: profileError } = await supabase
       .from('user_profiles')
-      .select('id, display_name, regions_of_interest, types_of_interest');
+      .select('id, display_name, regions_of_interest, types_of_interest, digest_frequency, digest_keywords');
 
     if (profileError) {
       return { data: null, error: { code: 'DB_ERROR', message: `Failed to query user_profiles: ${profileError.message}` } };
@@ -85,6 +85,8 @@ export async function getUsersForDigest(): Promise<Result<DigestUser[]>> {
         types_of_interest: (profile.types_of_interest as string[]) ?? [],
         reminders_enabled: true,
         has_save_history: false, // will be set in step 5
+        digest_frequency: ((profile.digest_frequency as string) ?? 'weekly') as 'weekly' | 'biweekly',
+        digest_keywords: (profile.digest_keywords as string[]) ?? [],
       });
     }
 

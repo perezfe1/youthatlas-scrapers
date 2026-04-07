@@ -32,12 +32,23 @@ export function matchOpportunitiesForUser(
   const typeSet = new Set(user.types_of_interest);
   const regionSet = new Set(user.regions_of_interest);
 
+  const hasKeywords = user.digest_keywords.length > 0;
+  const keywords = user.digest_keywords.map(k => k.toLowerCase());
+
   const matched = opportunities.filter((opp) => {
     // Match type (if user has type preferences)
     if (hasTypes && typeSet.has(opp.type)) return true;
 
     // Match region (if user has region preferences)
     if (hasRegions && opp.regions.some((r) => regionSet.has(r))) return true;
+
+    // Match keyword against title + summary + organization
+    if (hasKeywords) {
+      const searchText = [opp.title, opp.summary ?? '', opp.organization ?? '']
+        .join(' ')
+        .toLowerCase();
+      if (keywords.some(kw => searchText.includes(kw))) return true;
+    }
 
     return false;
   });
