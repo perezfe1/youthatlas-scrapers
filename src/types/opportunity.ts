@@ -44,6 +44,9 @@ export interface Opportunity {
   fields: string[];
   regions: Region[];
   countries: string[];
+  eligible_nationalities: string[];
+  min_age: number | null;
+  max_age: number | null;
   target_audience: EducationLevel[];
   eligibility_text: string;
   deadline: string | null;
@@ -72,6 +75,9 @@ export interface ExtractedOpportunity {
   fields: string[];
   regions: Region[];
   countries: string[];
+  eligible_nationalities: string[];
+  min_age: number | null;
+  max_age: number | null;
   target_audience: EducationLevel[];
   eligibility_text: string;
   deadline: string | null;

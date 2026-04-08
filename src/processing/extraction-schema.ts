@@ -52,6 +52,27 @@ export const extractedOpportunitySchema = z.object({
     .array(z.string().transform((s) => s.trim()))
     .default([]),
 
+  eligible_nationalities: z
+    .array(
+      z.string()
+        .transform((s) => s.trim().toLowerCase().replace(/\s+/g, '_'))
+    )
+    .default([]),
+
+  min_age: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .default(null),
+
+  max_age: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .default(null),
+
   target_audience: z
     .array(z.enum(EDUCATION_LEVELS))
     .default(['any']),  // young_professional, postgraduate, youth now in EDUCATION_LEVELS

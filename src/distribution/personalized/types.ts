@@ -11,6 +11,9 @@ export type DigestUser = {
   has_save_history: boolean;
   digest_frequency: 'weekly' | 'biweekly';
   digest_keywords: string[];
+  country_of_citizenship: string | null;
+  country_of_citizenship_2: string | null;
+  date_of_birth: string | null;
 };
 
 export type PersonalizedDigestResult = {

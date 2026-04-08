@@ -10,6 +10,7 @@ const DIGEST_COLUMNS = [
   'id', 'title', 'slug', 'type', 'summary', 'organization',
   'regions', 'deadline', 'is_rolling', 'is_fully_funded',
   'completeness_score', 'created_at', 'status', 'application_url',
+  'eligible_nationalities', 'min_age', 'max_age',
 ].join(',');
 
 // ── Users ────────────────────────────────────────────────────────────────────
@@ -26,7 +27,7 @@ export async function getUsersForDigest(): Promise<Result<DigestUser[]>> {
     // Step 1: Get all user profiles
     const { data: profiles, error: profileError } = await supabase
       .from('user_profiles')
-      .select('id, display_name, regions_of_interest, types_of_interest, digest_frequency, digest_keywords');
+      .select('id, display_name, regions_of_interest, types_of_interest, digest_frequency, digest_keywords, country_of_citizenship, date_of_birth, country_of_citizenship_2');
 
     if (profileError) {
       return { data: null, error: { code: 'DB_ERROR', message: `Failed to query user_profiles: ${profileError.message}` } };
@@ -87,6 +88,9 @@ export async function getUsersForDigest(): Promise<Result<DigestUser[]>> {
         has_save_history: false, // will be set in step 5
         digest_frequency: ((profile.digest_frequency as string) ?? 'weekly') as 'weekly' | 'biweekly',
         digest_keywords: (profile.digest_keywords as string[]) ?? [],
+        country_of_citizenship: (profile.country_of_citizenship as string) ?? null,
+        country_of_citizenship_2: (profile.country_of_citizenship_2 as string) ?? null,
+        date_of_birth: (profile.date_of_birth as string) ?? null,
       });
     }
 

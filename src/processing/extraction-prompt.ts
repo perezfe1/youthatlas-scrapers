@@ -16,6 +16,9 @@ Given the raw HTML of an opportunity page, extract structured data and return it
   "fields": ["string array — academic/professional fields: STEM, Social Sciences, Business, Arts, Health, Law, Education, Agriculture, Environment, Technology, Engineering, Any. Empty array if unclear"],
   "regions": ["string array — one or more of: global, africa, asia, europe, latin_america, north_america, middle_east, oceania, caribbean (stored as latin_america)"],
   "countries": ["string array — specific countries mentioned, full names. Empty array if not country-specific"],
+  "eligible_nationalities": ["string array — specific nationalities/citizenships required to apply. Use lowercase with underscores (e.g. 'south_africa', 'united_states', 'brazil'). Use ['global'] if EXPLICITLY stated as open to all nationalities. Use empty array [] if nationality requirements are unclear or not mentioned."],
+  "min_age": "integer|null — minimum age requirement. 'Must be at least 18' → 18. null if not mentioned.",
+  "max_age": "integer|null — maximum age requirement. 'Must be under 35' → 35. 'Between 18 and 30' → max_age 30. null if not mentioned.",
   "target_audience": ["string array — one or more of: high_school, undergraduate, graduate, postdoc, professional, young_professional, postgraduate, youth, any"],
   "eligibility_text": "string — key eligibility criteria: age, nationality, education requirements. Brief paragraph.",
   "deadline": "string|null — YYYY-MM-DD format. null if rolling or unknown. If only month/year given, use last day of month.",
@@ -35,7 +38,9 @@ Given the raw HTML of an opportunity page, extract structured data and return it
 5. Clean all text values: no HTML tags, no excessive whitespace, no "Click here" or "Apply now" button text.
 6. For application_url: look for "Apply", "Apply Now", "Application Form", "Official Link" buttons/links. Return the href, not the display text. Skip youthop.com/link?u= redirects — extract the actual destination URL from the query parameter if possible.
 7. Return ONLY valid JSON. No trailing commas, no comments, no undefined values.
-8. Respond with valid JSON only — no markdown fences, no prose, no explanation.`;
+8. Respond with valid JSON only — no markdown fences, no prose, no explanation.
+9. For eligible_nationalities: extract ONLY explicit citizenship requirements (e.g. "Must be a US citizen", "Open to South African nationals"). Do NOT infer from where the opportunity is located. If Fulbright says "for American students going to South Africa", eligible_nationalities is ["united_states"] not ["south_africa"]. If unclear, return [].
+10. For min_age/max_age: extract ONLY explicit numeric age requirements. "Must be under 35 at time of application" → max_age: 35. "Open to youth aged 18–30" → min_age: 18, max_age: 30. "Young professionals" alone is NOT a numeric age — return null. If unclear, return null.`;
 
 /**
  * Build the user prompt for a specific page.

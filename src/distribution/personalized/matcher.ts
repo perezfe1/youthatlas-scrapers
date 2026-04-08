@@ -20,10 +20,48 @@ export function matchOpportunitiesForUser(
   const hasTypes = user.types_of_interest.length > 0;
   const hasRegions = user.regions_of_interest.length > 0;
 
-  // No preferences → generic digest
+  const citizenship = user.country_of_citizenship ?? null;
+  const citizenship2 = user.country_of_citizenship_2 ?? null;
+
+  // ── Citizenship pre-filter ────────────────────────────────────────────────
+  // Exclude opps with explicit nationality restrictions that don't match either
+  // of the user's citizenships.
+  const citizenshipFiltered = (citizenship || citizenship2)
+    ? opportunities.filter((opp) => {
+        const nats = opp.eligible_nationalities ?? [];
+        if (nats.length === 0) return true;
+        if (nats.includes('global')) return true;
+        if (citizenship && nats.includes(citizenship)) return true;
+        if (citizenship2 && nats.includes(citizenship2)) return true;
+        return false;
+      })
+    : opportunities;
+
+  // ── Age pre-filter ────────────────────────────────────────────────────────
+  // Exclude opps where the user's age is outside the stated min/max requirement.
+  const userAge: number | null = user.date_of_birth
+    ? (() => {
+        const dob = new Date(user.date_of_birth);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+        return age;
+      })()
+    : null;
+
+  const ageFiltered = userAge !== null
+    ? citizenshipFiltered.filter((opp) => {
+        if (opp.min_age !== null && userAge < opp.min_age) return false;
+        if (opp.max_age !== null && userAge > opp.max_age) return false;
+        return true;
+      })
+    : citizenshipFiltered;
+
+  // No preferences → generic digest (from age-filtered pool)
   if (!hasTypes && !hasRegions) {
     return {
-      opportunities: opportunities.slice(0, GENERIC_LIMIT),
+      opportunities: ageFiltered.slice(0, GENERIC_LIMIT),
       isPersonalized: false,
     };
   }
@@ -35,7 +73,7 @@ export function matchOpportunitiesForUser(
   const hasKeywords = user.digest_keywords.length > 0;
   const keywords = user.digest_keywords.map(k => k.toLowerCase());
 
-  const matched = opportunities.filter((opp) => {
+  const matched = ageFiltered.filter((opp) => {
     // Match type (if user has type preferences)
     if (hasTypes && typeSet.has(opp.type)) return true;
 
@@ -53,10 +91,10 @@ export function matchOpportunitiesForUser(
     return false;
   });
 
-  // If preferences yielded no matches, fall back to generic
+  // If preferences yielded no matches, fall back to generic (age-filtered)
   if (matched.length === 0) {
     return {
-      opportunities: opportunities.slice(0, GENERIC_LIMIT),
+      opportunities: ageFiltered.slice(0, GENERIC_LIMIT),
       isPersonalized: false,
     };
   }
