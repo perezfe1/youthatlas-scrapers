@@ -1,0 +1,63 @@
+name: Weekly Supabase Backup
+
+# Supabase Free plan has no automated backups (Pro-only). This dumps the
+# database weekly so a pause/deletion doesn't mean permanent data loss.
+#
+# The repo is public, so the dump is GPG-encrypted before upload — an
+# unencrypted artifact would expose user emails and other PII to anyone.
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'  # Sunday 3 AM UTC
+
+  workflow_dispatch:        # manual trigger from GitHub UI
+
+concurrency:
+  group: supabase-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db dump --db-url "$SUPABASE_DB_URL" -f backup.sql
+
+      - name: Encrypt backup
+        env:
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase "$BACKUP_ENCRYPTION_PASSPHRASE" \
+            -o backup.sql.gpg backup.sql
+          shred -u backup.sql
+
+      - name: Upload encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: backup.sql.gpg
+          retention-days: 90
+
+      - name: Notify admin (Telegram)
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+        run: |
+          STATUS="${{ job.status }}"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHANNEL_ID}" \
+            -d text="Supabase weekly backup: ${STATUS} (run ${{ github.run_id }})" > /dev/null

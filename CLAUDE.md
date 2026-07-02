@@ -49,6 +49,7 @@ All 9 modules done:
 | `push-notifications.yml` | "Push Notifications" | On completion of "Daily Ingest Pipeline" | Web Push to all push_subscriptions subscribers |
 | `onboarding-email.yml` | "Onboarding Email" | Every 6 hours | Resend email to users 20–28h after signup (catches the window on a 6h cron) |
 | `type-check.yml` | "Type Check" | On push/PR | TypeScript validation |
+| `supabase-backup.yml` | "Weekly Supabase Backup" | Sunday 3 AM UTC | GPG-encrypted `pg_dump` uploaded as artifact — Free plan has no automated backups |
 
 ## Package Scripts
 
@@ -115,6 +116,14 @@ All 9 modules done:
 | Var | Purpose |
 |-----|---------|
 | `RESEND_API_KEY` | Resend transactional email |
+| `TELEGRAM_BOT_TOKEN` | Admin monitoring |
+| `TELEGRAM_CHANNEL_ID` | Admin monitoring channel |
+
+### Supabase backup only
+| Var | Purpose |
+|-----|---------|
+| `SUPABASE_DB_URL` | Direct Postgres connection string (includes DB password — get from Supabase dashboard → Settings → Database) |
+| `BACKUP_ENCRYPTION_PASSPHRASE` | Symmetric passphrase used to GPG-encrypt the dump before it's uploaded as a public-repo artifact |
 | `TELEGRAM_BOT_TOKEN` | Admin monitoring |
 | `TELEGRAM_CHANNEL_ID` | Admin monitoring channel |
 
