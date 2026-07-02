@@ -4,6 +4,8 @@
 
 Automated pipeline that scrapes opportunity listings from trusted aggregator websites, processes them with Google Gemini AI, stores in Supabase, and distributes to Telegram + email. Runs daily via GitHub Actions.
 
+**⚠️ Check [ESTADO.md](../ESTADO.md) (project root) before assuming the pipeline is running.** As of the last verification, all `schedule:`-triggered workflows here were auto-disabled by GitHub's 60-day-inactivity policy — this repo's last commit predates that check by more than 60 days. Confirm current status with `gh workflow list --all` before relying on daily ingest, reminders, or digests being live.
+
 ## Project Status
 
 ### Phase 1 — Scraper Pipeline (COMPLETE)
@@ -45,6 +47,7 @@ All 9 modules done:
 | `deadline-reminders.yml` | "Deadline Reminders" | Daily 10 AM UTC | Email users with upcoming deadlines |
 | `personalized-digest.yml` | "Personalized Weekly Digest" | Monday 8 AM UTC | Per-user Resend email based on type/region prefs |
 | `push-notifications.yml` | "Push Notifications" | On completion of "Daily Ingest Pipeline" | Web Push to all push_subscriptions subscribers |
+| `onboarding-email.yml` | "Onboarding Email" | Every 6 hours | Resend email to users 20–28h after signup (catches the window on a 6h cron) |
 | `type-check.yml` | "Type Check" | On push/PR | TypeScript validation |
 
 ## Package Scripts
@@ -59,6 +62,7 @@ All 9 modules done:
 | `reminders` / `reminders:ci` | .env / CI | Send deadline reminder emails |
 | `digest:personalized` / `digest:personalized:ci` | .env / CI | Send personalized weekly email digest |
 | `push` / `push:ci` | .env / CI | Send web push notifications |
+| `onboarding:email` / `onboarding:email:ci` | .env / CI | Send onboarding email to users 20-28h post-signup |
 | `type-check` | — | `tsc --noEmit` |
 
 ## Environment Variables
@@ -107,12 +111,20 @@ All 9 modules done:
 | `TELEGRAM_BOT_TOKEN` | Admin notification on send |
 | `TELEGRAM_CHANNEL_ID` | Admin monitoring channel |
 
+### Onboarding email only
+| Var | Purpose |
+|-----|---------|
+| `RESEND_API_KEY` | Resend transactional email |
+| `TELEGRAM_BOT_TOKEN` | Admin monitoring |
+| `TELEGRAM_CHANNEL_ID` | Admin monitoring channel |
+
 > ⚠️ `TELEGRAM_CHANNEL_ID` (admin) ≠ `TELEGRAM_PUBLIC_CHANNEL_ID` (public). Using the wrong one silently fails.
 > ⚠️ Kit broadcasts are drafts — `POST /v3/broadcasts` creates a draft only. Must be published in the Kit dashboard.
 > ⚠️ GitHub Secrets: always set via `gh secret set` piped from .env to avoid trailing whitespace corruption.
 
 ## Architecture Rules — FOLLOW THESE ALWAYS
 
+0. **This repo is PUBLIC (since May 25, 2026).** Never commit secrets, `.env` files, or real key values.
 1. **Every async function returns `Result<T>`** (see `src/types/opportunity.ts`). Never throw.
 2. **Env vars validated via Zod** in `src/config/env.ts`. Never use raw `process.env`. Call the appropriate `load*Env()` at the top of every entry point.
 3. **All scrapers extend the base scraper pattern** in `src/scrapers/base-scraper.ts`. Includes retry logic, rate limiting, and run logging.
@@ -160,6 +172,8 @@ All 9 modules done:
 | `src/distribution/push/types.ts` | PushSubscription, PushPayload, PushResult types |
 | `src/distribution/push/sender.ts` | getAllPushSubscriptions(), sendPushNotifications() — auto-removes 410 expired |
 | `src/distribution/push/run-push.ts` | CLI entry: queries last 24h opps, builds payload, sends push, Telegram admin notify |
+| `src/distribution/onboarding/email-template.ts` | Onboarding email HTML template |
+| `src/distribution/onboarding/run-onboarding-email.ts` | CLI entry: finds users 20-28h post-signup, sends onboarding email via Resend |
 | `src/lib/telegram.ts` | `sendTelegramMessage()` helper |
 | `src/lib/supabase.ts` | Supabase client singleton |
 | `src/lib/logger.ts` | Structured JSON logger |
