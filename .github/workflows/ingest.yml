@@ -32,7 +32,12 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       matrix:
-        scraper: [youthop, ofy, opdesk, afterschool, scholads]
+        # ofy (opportunitiesforyouth.org) and opdesk (opportunitydesk.org)
+        # temporarily removed 2026-07-08 — both scrapers failing (see run
+        # history). Re-add to this array once fixed; the run-*.ts scripts and
+        # `scrape:ofy` / `scrape:opdesk` package scripts are unchanged, and
+        # they can still be run manually via workflow_dispatch --scraper=ofy.
+        scraper: [youthop, afterschool, scholads]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4

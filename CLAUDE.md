@@ -10,7 +10,7 @@ Automated pipeline that scrapes opportunity listings from trusted aggregator web
 
 ### Phase 1 — Scraper Pipeline (COMPLETE)
 All 9 modules done:
-- 5 scrapers: YouthOp, OFY (OpportunityForYouth), OpDesk, AfterSchool, ScholAds
+- 5 scrapers exist: YouthOp, OFY (OpportunityForYouth), OpDesk, AfterSchool, ScholAds. **Only 3 run in the daily matrix as of 2026-07-08** — OFY and OpDesk are paused in `ingest.yml` (both failing; run-*.ts scripts kept for when fixed).
 - AI extraction via Google Gemini 2.5 Flash (Zod-validated output)
 - Supabase storage with dedup (SHA-256 hash → URL dedup → fuzzball fuzzy match, threshold 78)
 - Daily automated pipeline via GitHub Actions (`ingest.yml`, parallel matrix strategy)
@@ -41,7 +41,7 @@ All 9 modules done:
 
 | File | Workflow Name | Schedule / Trigger | Purpose |
 |------|-----------|---------|---------|
-| `ingest.yml` | "Daily Ingest Pipeline" | Daily 4 AM UTC | Scrape → extract → store (parallel matrix, 5 scrapers) |
+| `ingest.yml` | "Daily Ingest Pipeline" | Daily 4 AM UTC | Scrape → extract → store (parallel matrix; 3 active scrapers — ofy/opdesk paused 2026-07-08) |
 | `distribute-telegram.yml` | "Telegram Distribution" | On completion of "Daily Ingest Pipeline" | Post new listings to @youthatlas1 |
 | `weekly-digest.yml` | "Weekly Email Digest" | Monday 8 AM UTC | Send Kit v3 broadcast draft |
 | `deadline-reminders.yml` | "Deadline Reminders" | Daily 10 AM UTC | Email users with upcoming deadlines |
